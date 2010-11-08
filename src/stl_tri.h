@@ -65,6 +65,7 @@ class STLtri: protected Pointers {
    double **f_tri;        
    double **fn_fshear;    
    double *Area;          
+   double *wear;          
 
    double **cK;
    double ***ogK;

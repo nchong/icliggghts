@@ -42,6 +42,7 @@ class CfdDatacouplingFile : public CfdDatacoupling {
   private:
    char* filepath;
    bool firstexec;
+   int t0;
 
    char * getFilePath(char *name,bool);
    void op_complete(char *name);

@@ -157,18 +157,18 @@ void MechParamGran::getMaterialParams(int charVelFlag, int cohesionflag)
 
           if(cohesionflag) cohEnergyDens[i][j] = cohEnergyDens1->compute_array(i-1,j-1);
           //omitting veff here
+
       }
   }
   if(charVelFlag) charVel=charVel1->compute_scalar();
 
-  //fprintf(lmp->screen,"Yeff[1][1]=%f Geff[1][1]=%f coeffRestLog[1][1]=%f coeffFrict[1][1]=%f betaeff[1][1]=%f\n",Yeff[1][1],Geff[1][1],coeffRestLog[1][1],coeffFrict[1][1],betaeff[1][1]);
 }
 
 void MechParamGran::create_arrays(int len)
 {
     Yeff=memory->create_2d_double_array(len,len,"MechParamGran: Yeff");
     Geff=memory->create_2d_double_array(len,len,"MechParamGran: Geff");
-    betaeff=memory->create_2d_double_array(len,len,"MechParamGran: Geff");
+    betaeff=memory->create_2d_double_array(len,len,"MechParamGran: betaeff");
     veff=memory->create_2d_double_array(len,len,"MechParamGran: veff");
     cohEnergyDens=memory->create_2d_double_array(len,len,"MechParamGran: cohEnergyDens");
     coeffRestLog=memory->create_2d_double_array(len,len,"MechParamGran: coeffRest");

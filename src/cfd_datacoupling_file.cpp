@@ -61,6 +61,8 @@ CfdDatacouplingFile::CfdDatacouplingFile(LAMMPS *lmp, int jarg,int narg, char **
     strcpy(filepath,arg[iarg]);
     if(filepath[strlen(arg[iarg])]!='/') strcat(filepath,"/");
 
+    t0 = -1;
+
     iarg++;
 }
 
@@ -75,7 +77,7 @@ void CfdDatacouplingFile::pull(char *name,char *type,void *&from)
 {
     int len1 = -1, len2 = -1;
 
-    void * to = fc->find_pull_property(name,type,len1,len2);
+    void * to = find_pull_property(name,type,len1,len2);
 
     if(to && strcmp(type,"scalar") == 0)
     {
@@ -102,7 +104,6 @@ void CfdDatacouplingFile::pull(char *name,char *type,void *&from)
         if(screen) fprintf(screen,"LIGGGHTS could not find property %s to write data from calling program to.\n",name);
         lmp->error->all("This error is fatal");
     }
-    firstexec = false;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -111,7 +112,10 @@ void CfdDatacouplingFile::push(char *name,char *type,void *&to)
 {
     int len1 = -1, len2 = -1;
 
-    void * from = fc->find_push_property(name,type,len1,len2);
+    if(t0 == -1) t0 = update->ntimestep;
+    if(update->ntimestep > t0) firstexec = false;
+
+    void * from = find_push_property(name,type,len1,len2);
 
     if(from && strcmp(type,"scalar") == 0)
     {

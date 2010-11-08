@@ -40,21 +40,25 @@ class FixMeshGranAnalyze : public FixMeshGran {
   ~FixMeshGranAnalyze();
   virtual int setmask();
   void pre_force(int);
-  void add_particle_contribution(double*,double*,int);
+  void add_particle_contribution(double*,double*,int,int);
   virtual void final_integrate();
-  virtual void init(){};
+  virtual void init();
   virtual int write_restart_sub(FILE * fp,int n){return n;}
   virtual void restart_sub(char *){}
   double compute_vector(int);
 
  protected:
+
+  int finnie_flag;
+  double const* const* k_finnie;
+
   void calc_total_force();
   virtual int n_children(){return 0;}
   virtual void children_write(FILE* fp) {}
   virtual void children_restart(double *){}
 
  private:
-  double *tmp,*tmp2;
+  double tmp[3],tmp2[3];
 
 }; //end class
 

@@ -542,6 +542,7 @@ double PairGranHookeHistory::init_one(int i, int j)
   double cutoff = maxrad_dynamic[i]+maxrad_dynamic[j];
   cutoff = MAX(cutoff,maxrad_frozen[i]+maxrad_dynamic[j]);
   cutoff = MAX(cutoff,maxrad_dynamic[i]+maxrad_frozen[j]);
+
   return cutoff;
 }
 

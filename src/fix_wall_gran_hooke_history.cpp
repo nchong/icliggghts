@@ -57,7 +57,7 @@ enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY};
 #define MIN(A,B) ((A) < (B)) ? (A) : (B)
 #define MAX(A,B) ((A) > (B)) ? (A) : (B)
 
-#define EPSILON_MOVINGMESH 1e-12
+#define EPSILON_MOVINGMESH 1e-10
 #define SMALL 1e-8
 
 /* ---------------------------------------------------------------------- */
@@ -551,13 +551,6 @@ void FixWallGranHookeHistory::post_force(int vflag)
                           MathExtra::mldivide3(Mt,contactPoint,contactPoint_triCoo,lmp->error);
                       }
 
-                      if(std::isnan(contactPoint_triCoo[0])||std::isnan(contactPoint_triCoo[1])||std::isnan(contactPoint_triCoo[2]))
-                      {
-                          error->warning("Velocity calculation for moving wall failed. Using zero velocity for damping, which may result in over- or underdamping.");
-                          for(int mm=0;mm<3;mm++) vwall[mm]=0.;
-                      }
-                      else
-                      {
                           //to reduce numerical error, normalize the coordinates manually
                           normalize_bary(contactPoint_triCoo);
 
@@ -565,7 +558,6 @@ void FixWallGranHookeHistory::post_force(int vflag)
                           for (int mm=0;mm<3;mm++) {
                              vwall[mm]=contactPoint_triCoo[0]*vnode[0][mm]+contactPoint_triCoo[1]*vnode[1][mm]+contactPoint_triCoo[2]*vnode[2][mm];
                           }
-                      }
                       
                   }
                   else if(FixMeshGranList[iFMG]->STLdata->conveyor) for(int mm=0;mm<3;mm++) vwall[mm]=FixMeshGranList[iFMG]->STLdata->v_node[iTri][0][mm]; //all nodes have same vel
@@ -591,7 +583,7 @@ void FixWallGranHookeHistory::post_force(int vflag)
                         vectorCopy3D(f[i],wallforce);
                         compute_force(i,rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],radius[i],rmass[i],shr,kn,kt,gamman,gammat,xmu);
                         vectorSubtract3D(wallforce,f[i],wallforce);
-                        FixMeshGranList[iFMG]->add_particle_contribution(wallforce,contactPoint,iTri);
+                        FixMeshGranList[iFMG]->add_particle_contribution(wallforce,contactPoint,iTri,i);
                   }
                   else compute_force(i,rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],radius[i],rmass[i],shr,kn,kt,gamman,gammat,xmu);
 

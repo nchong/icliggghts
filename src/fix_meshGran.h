@@ -71,7 +71,7 @@ class FixMeshGran : public Fix {
   double *torque_total;
   double *p_ref;
 
-  virtual void add_particle_contribution(double*,double*,int){}
+  virtual void add_particle_contribution(double*,double*,int,int){}
 
  protected:
   bool analyseStress;

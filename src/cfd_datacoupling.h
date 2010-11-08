@@ -40,6 +40,16 @@ class CfdDatacoupling : protected Pointers {
   virtual void pull(char *,char *,void *&) {};
   virtual void push(char *,char *,void *&) {};
 
+  void* find_pull_property(char *name,char *type,int &len1,int &len2)
+  {
+      return fc->find_pull_property(name,type,len1,len2);
+  }
+
+  void* find_push_property(char *name,char *type,int &len1,int &len2)
+  {
+      return fc->find_push_property(name,type,len1,len2);
+  }
+
  protected:
   int iarg;
   class FixCfdCoupling *fc;

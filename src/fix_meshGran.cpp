@@ -436,7 +436,7 @@ void FixMeshGran::write_restart(FILE *fp)
 {
   int n = 0;
 
-  int listlen=12*nTri+2;
+  int listlen=13*nTri+2;
   double *list=new double[listlen];
 
   list[n++]=static_cast<double>(STLdata->nTri);
@@ -448,6 +448,7 @@ void FixMeshGran::write_restart(FILE *fp)
     for(int j=0;j<3;j++)
       for(int k=0;k<3;k++)
         list[n++] = STLdata->node[i][j][k];
+    list[n++] = STLdata->wear[i];
   }
 
   if (comm->me == 0) {
@@ -482,6 +483,7 @@ void FixMeshGran::restart(char *buf)
     for(int j=0;j<3;j++)
       for(int k=0;k<3;k++)
         STLdata->node[i][j][k] = list[n++];
+    STLdata->wear[i] = list[n++];
   }
 
   nTri=STLdata->nTri;

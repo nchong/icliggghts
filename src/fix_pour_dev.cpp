@@ -329,6 +329,11 @@ FixPourDev::FixPourDev(LAMMPS *lmp, int narg, char **arg) :
       else if(me==0) error->all("Fix pour/dev can not achieve desired mass flow rate, choose higher volume fraction or higher insertion velocity");
   }
 
+  if(nper > ninsert)
+  {
+      nfinal = update->ntimestep + 1;
+  }
+
   // print stats
 
   if (me == 0) {
@@ -429,6 +434,7 @@ void FixPourDev::pre_exchange()
   // nnew = # to insert this timestep
 
   int nnew = static_cast<int>(nper+random->uniform());
+  if (ninserted + nnew > ninsert) nnew = ninsert - ninserted;
 
   //init number of bodies to be inserted
   nnew = fpdd->random_init(nnew);
@@ -438,8 +444,6 @@ void FixPourDev::pre_exchange()
       error->warning("Inserting no particle - void fraction or mass flow rate might be too low");
       return;
   }
-
-  if (ninserted + nnew > ninsert) nnew = ninsert - ninserted;
 
   // lo/hi current = z (or y) bounds of insertion region this timestep
 

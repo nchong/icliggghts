@@ -117,5 +117,5 @@ void FixCfdCouplingForce::post_force(int vflag)
       f[i][2] += dragf[i][2];
       
     }
-  
+
 }

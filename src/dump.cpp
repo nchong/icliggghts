@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -182,7 +182,7 @@ void Dump::write()
 
   int me_size = pack();
 
-  // multiproc = 1 = each proc writes own data to own file 
+  // multiproc = 1 = each proc writes own data to own file
   // multiproc = 0 = all procs write to one file thru proc 0
   //   proc 0 pings each proc, receives it's data, writes to file
   //   all other procs wait for ping, send their data to proc 0
@@ -195,18 +195,18 @@ void Dump::write()
 
     if (me == 0) {
       for (int iproc = 0; iproc < nprocs; iproc++) {
-	if (iproc) {
-	  MPI_Irecv(buf,maxbuf,MPI_DOUBLE,iproc,0,world,&request);
-	  MPI_Send(&tmp,0,MPI_INT,iproc,0,world);
-	  MPI_Wait(&request,&status);
-	  MPI_Get_count(&status,MPI_DOUBLE,&nlines);
-	  nlines /= size_one;
-	} else nlines = me_size/size_one;
+        if (iproc) {
+          MPI_Irecv(buf,maxbuf,MPI_DOUBLE,iproc,0,world,&request);
+          MPI_Send(&tmp,0,MPI_INT,iproc,0,world);
+          MPI_Wait(&request,&status);
+          MPI_Get_count(&status,MPI_DOUBLE,&nlines);
+          nlines /= size_one;
+        } else nlines = me_size/size_one;
 
-	write_data(nlines,buf);
+        write_data(nlines,buf);
       }
       if (flush_flag) fflush(fp);
-      
+
     } else {
       MPI_Recv(&tmp,0,MPI_INT,0,0,world,&status);
       MPI_Rsend(buf,me_size,MPI_DOUBLE,0,0,world);

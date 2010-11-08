@@ -124,10 +124,10 @@ void FixPropertyGlobal::grow(int len1, int len2)
     else if(svmStyle == FIXPROPERTYTYPE_GLOBAL_MATRIX && len1*len2 > nvalues)
     {
         values = (double*) memory->srealloc(values,len1*len2*sizeof(double),"FixPropertyGlobal:values");
-        size_array_cols = len1;
-        size_array_rows = len2;
+        size_array_rows = len1;
+        size_array_cols = len2;
         array = (double**)memory->srealloc(array,size_array_cols*sizeof(double**),"FixPropGlob:array");
-        for(int i = 0; i < size_array_cols; i++) array[i] = &values[i*size_array_rows];
+        for(int i = 0; i < size_array_rows; i++) array[i] = &values[i*size_array_cols];
     }
 }
 
@@ -174,8 +174,7 @@ double FixPropertyGlobal::compute_array(int i, int j) //i is row, j is column
     if (j>(size_array_cols-1))error->all("Trying to access matrix in fix property/global, but column index out of bounds");
 
     int ind;
-    if (i==0) ind=j;
-    else ind =  ((i-1)*size_array_cols)+j;
+    ind = (i*size_array_cols)+j;
 
     return values[ind];
 }
@@ -186,7 +185,6 @@ void FixPropertyGlobal::array_modify(int i, int j,double val) //i is row, j is c
     if (j>(size_array_cols-1))error->all("Trying to access matrix in fix property/global, but column index out of bounds");
 
     array_recomputed[i][j] = val;
-    
 }
 
 double FixPropertyGlobal::compute_array_modified(int i, int j) //i is row, j is column
@@ -195,13 +193,6 @@ double FixPropertyGlobal::compute_array_modified(int i, int j) //i is row, j is 
     if (j>(size_array_cols-1))error->all("Trying to access matrix in fix property/global, but column index out of bounds");
 
     return array_recomputed[i][j];
-    
-    /*
-    int ind;
-    if (i==0) ind=j;
-    else ind =  ((i-1)*size_array_cols)+j;
-
-    return values_recomputed[ind];*/
 }
 
 /* ---------------------------------------------------------------------- */

@@ -1,12 +1,11 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
 <HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Linux)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGEDBY" CONTENT="christophkloss ">
-	<META NAME="CHANGED" CONTENT="20100629;10344100">
+	<META NAME="CHANGED" CONTENT="20101108;13581700">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
@@ -173,6 +172,13 @@ regions from the specified insertion region</P>
 small. Compared to the LAMMPS style fix pour command, the volume has
 to be larger because the particles are completely located within the
 insertion volume.</P>
+<P>IMPORTANT NOTE: Insertion will stop if either the specified
+mass-flow rate or the specified volume fraction is reached. In case
+you want to make sure as many particles as possible are inserted, you
+should specify a large value for vol, e.g. 0.6. If the mass-flow rate
+can still be not achieved, you have to choose a higher insertion
+velocity. This command also offers the option to exempt certain
+regions from the specified insertion region</P>
 <P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
 </P>
 <P>Information about this fix is written to <A HREF="restart.html">binary

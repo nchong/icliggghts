@@ -80,6 +80,7 @@ inline void PairGranHertzHistory::deriveContactModelParams(int &ip, int &jp,doub
     sprintf(testmsg,"Yeff=%f,reff=%f,deltan=%f, kn=%f, kt=%f, gamman=%f, gammat=%f, xmu=%f\n",Yeff, reff,deltan, kn,kt,gamman,gammat,xmu);
     error->warning(testmsg);
     delete []testmsg;*/
+
     #define LMP_GRAN_DEFS_UNDEFINE
     #include "pair_gran_defs.h"
     #undef LMP_GRAN_DEFS_UNDEFINE

@@ -1,12 +1,11 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
 <HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Linux)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGEDBY" CONTENT="christophkloss ">
-	<META NAME="CHANGED" CONTENT="20100629;10175200">
+	<META NAME="CHANGED" CONTENT="20101108;14054700">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
@@ -26,7 +25,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix ID group-ID mesh/gran filename walltype scalefactor xoff yoff zoff phix phiy phiz </PRE>
+<PRE STYLE="margin-bottom: 0.2in">fix ID group-ID mesh/gran filename walltype scalefactor xoff yoff zoff phix phiy phiz keyword values</PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">ID, group-ID are documented in <A HREF="fix.html">fix</A>
 	command 
@@ -38,8 +37,14 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 	xoff, yoff,zoff , phix, phiy, phiz are documented in <A HREF="fix_mesh_gran.html">fix
 	mesh/gran</A>.</P>
 </UL>
-<P><BR><BR>
-</P>
+<UL>
+	<LI><P STYLE="margin-bottom: 0in">zero or more keyword/value pairs
+	may be appended 
+	</P>
+	<LI><P>keyword = <I>finnie</I> 
+	</P>
+	<PRE STYLE="margin-bottom: 0.2in">  <I>finnie</I> value = <I>yes</I> or <I>no</I> </PRE>
+</UL>
 <P><B>LIGGGHTS vs. LAMMPS Info: </B>
 </P>
 <P STYLE="margin-bottom: 0.2in; font-weight: normal">This command is
@@ -55,7 +60,19 @@ the following command:</P>
 which is similar to the <A HREF="dump.html">dump stl</A> command
 except for the fact that a VTK file is written instead of an STL file
 which contains the STL data as well as pressure and shear stress. See
-<A HREF="dump.html">dump mesh/gran/VTK</A>  for details.</P>
+<A HREF="dump.html">dump mesh/gran/VTK</A> for details.</P>
+<P>The optional finnie keyword activates a simple qualitative wear
+model - for details on the model, see the seperate
+/doc/finnie-wear.pdf.  The finnie constant k in 4.23 has to be
+specified as follows: 
+</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
+id all property/global k_finnie peratomtypepair n_atomtypes value_11
+value_12 .. value_21 value_22 .. .</FONT></FONT></P>
+<P STYLE="margin-left: 0.49in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>(value_ij=value
+for the finnie constant between atom type i and j; n_atomtypes is the
+number of atom types you want to use in your simulation) </FONT></FONT>
+</P>
 <P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
 </P>
 <P>This fix stores a global vector with 6 components for access by
@@ -67,7 +84,9 @@ particles. Other info see <A HREF="fix_mesh_gran.html">fix mesh/gran.</A></P>
 </P>
 <P><A HREF="fix_mesh_gran.html">fix mesh/gran</A> 
 </P>
-<P><B>Default:</B> none 
+<P><B>Default:</B> 
+</P>
+<P>finnie = no 
 </P>
 </BODY>
 </HTML>

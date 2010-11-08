@@ -37,21 +37,19 @@ See the README file in the top-level LAMMPS directory.
 #include "triSpherePenetration.h"
 #include "stl_tri.h"
 #include "mpi.h"
+#include "fix_propertyGlobal.h"
 
 using namespace LAMMPS_NS;
 
 #define EPSILON 0.001
 
-#define DEBUGMODE_MESHGRANANALYZE false
-#define DEBUG_OUTP_MESHGRAN logfile
+#define FABS(a) ((a) > 0 ? (a) : (-a))
 
 /* ---------------------------------------------------------------------- */
 
 FixMeshGranAnalyze::FixMeshGranAnalyze(LAMMPS *lmp, int narg, char **arg) :
   FixMeshGran(lmp, narg, arg)
 {
-   tmp=new double[3];
-   tmp2=new double[3];
    analyseStress=true;
 
    vector_flag = 1;
@@ -59,12 +57,33 @@ FixMeshGranAnalyze::FixMeshGranAnalyze(LAMMPS *lmp, int narg, char **arg) :
    global_freq = 1;
    extvector = 1;
 
+   finnie_flag = 0;
+   k_finnie = NULL;
+
+   bool hasargs = true;
+   while(iarg < narg && hasargs)
+   {
+      hasargs = false;
+      if(strcmp(arg[iarg],"finnie") == 0)
+      {
+          if (narg < iarg+2) error->all("Illegal fix mesh/gran/stressanalysis command, not enough arguments");
+          iarg++;
+          if(strcmp(arg[iarg],"yes") == 0) finnie_flag = 1;
+          else if(strcmp(arg[iarg],"no") == 0) finnie_flag = 0;
+          else error->all("Illegal fix mesh/gran/stressanalysis command, expecting 'yes' or 'no'");
+          iarg++;
+          hasargs = true;
+      }
+      else if(strcmp(style,"mesh/gran/stressanalysis") == 0) error->all("Illegal fix mesh/gran/stressanalysis command, unknown keyword");
+   }
+
+   if(finnie_flag) error->warning("You are using the wear model, which is currently in beta mode!");
+
 }
 
 FixMeshGranAnalyze::~FixMeshGranAnalyze()
 {
-   delete []tmp;
-   delete []tmp2;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -75,6 +94,14 @@ int FixMeshGranAnalyze::setmask()
   mask |=PRE_FORCE;
   mask |=FINAL_INTEGRATE;
   return mask;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixMeshGranAnalyze::init()
+{
+    if(finnie_flag)
+        k_finnie = static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("k_finnie","property/global","peratomtypepair",atom->ntypes,atom->ntypes)])->get_array();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -94,15 +121,48 @@ void FixMeshGranAnalyze::pre_force(int vflag)
 //   called during wall force calc
 /* ---------------------------------------------------------------------- */
 
-void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPoint,int iTri)
+void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPoint,int iTri,int ip)
 {
-    
+    double E,c[3],cmag,vmag,cos_gamma,sin_gamma,sin_2gamma,tan_gamma;
+
     vectorAdd3D(STLdata->f_tri[iTri],frc,STLdata->f_tri[iTri]);
 
     vectorAdd3D(force_total,frc,force_total);
     vectorSubtract3D(contactPoint,p_ref,tmp);
     vectorCross3D(tmp,frc,tmp2); //tmp2 is torque contrib
     vectorAdd3D(torque_total,tmp2,torque_total);
+
+    if(finnie_flag)
+    {
+        
+        vectorSubtract3D(contactPoint,atom->x[ip],c);
+        cmag = vectorMag3D(c);
+
+        if(vectorDot3D(c,atom->v[ip]) < 0.) return;
+
+        vmag = vectorMag3D(atom->v[ip]);
+
+        sin_gamma = FABS(vectorDot3D(atom->v[ip],STLdata->facenormal[iTri])) / (vmag);
+        
+        if(sin_gamma > 1.) sin_gamma = 1.;
+        if(sin_gamma < -1.) sin_gamma = -1.;
+
+        cos_gamma = sqrt(1. - sin_gamma * sin_gamma);
+        if(cos_gamma > EPSILON || (sin_gamma < 3. * cos_gamma))
+        {
+            E = 0.33333 * cos_gamma * cos_gamma;
+            
+        }
+        else
+        {
+            sin_2gamma = 2. * sin_gamma * cos_gamma;
+            E = sin_2gamma - 3. * sin_gamma * sin_gamma;
+            
+        }
+        E *= 2.*k_finnie[atom_type_wall-1][atom->type[ip]-1] * vmag * vectorMag3D(frc);
+        
+        STLdata->wear[iTri] += E;
+    }
 }
 
 /* ---------------------------------------------------------------------- */

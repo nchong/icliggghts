@@ -49,6 +49,7 @@ STLtri::STLtri(LAMMPS *lmp): Pointers(lmp)
     f=NULL;
     rmass=NULL;
     Area=NULL;
+    wear=NULL;
     neighfaces=NULL;
     contactInactive=NULL;
 
@@ -87,6 +88,7 @@ STLtri::~STLtri()
    lmp->memory->destroy_2d_double_array(f);
    delete[] rmass;
    delete[] Area;
+   delete[] wear;
    lmp->memory->destroy_2d_int_array(neighfaces);
    delete[] contactInactive;
    
@@ -112,6 +114,7 @@ void STLtri::grow_arrays()
     oKO=(double***)(lmp->memory->grow_3d_double_array(oKO, nTriMax, 3, 3, "stl_tri_oKO"));
     rK=(double*)(lmp->memory->srealloc(rK, nTriMax*sizeof(double), "stl_tri_rK"));
     Area=(double*)(lmp->memory->srealloc(Area, nTriMax*sizeof(double), "stl_tri_Area"));
+    wear=(double*)(lmp->memory->srealloc(wear, nTriMax*sizeof(double), "stl_tri_wear"));
     f_tri=(double**)(lmp->memory->grow_2d_double_array(f_tri,nTriMax,3, "stl_tri_f_tri"));
     fn_fshear=(double**)(lmp->memory->grow_2d_double_array(fn_fshear,nTriMax,3,"stl_tri_fn_fshear"));
     neighfaces=(int**)(lmp->memory->grow_2d_int_array(neighfaces,nTriMax, 3, "stl_tri_neighfaces"));
@@ -120,6 +123,7 @@ void STLtri::grow_arrays()
     for (int i=0;i<nTriMax;i++) {
         f_tri[i][0]=0.;f_tri[i][2]=0.;f_tri[i][2]=0.;
         fn_fshear[i][0]=0.;fn_fshear[i][1]=0.;fn_fshear[i][2]=0.;
+        wear[i] = 0.;
 
         neighfaces[i][0]=-1;neighfaces[i][1]=-1;neighfaces[i][2]=-1;
         contactInactive[i]=0; //init with all contacts active

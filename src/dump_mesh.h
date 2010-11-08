@@ -30,7 +30,11 @@ DumpStyle(mesh/gran/VTK,DumpMesh)
 #include "dump.h"
 #include "stl_tri.h"
 
-enum{DUMP_STRESS,DUMP_ID};
+enum{
+    DUMP_STRESS = 1,
+    DUMP_ID = 2,
+    DUMP_WEAR = 4,
+    };
 
 namespace LAMMPS_NS {
 

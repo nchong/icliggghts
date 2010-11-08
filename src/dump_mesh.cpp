@@ -56,13 +56,34 @@ DumpMesh::DumpMesh(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
 
   lasttimestep=-1;
 
-  int iarg=5;
+  int iarg = 5;
+  dump_what = 0;
 
-  if(strcmp(arg[iarg],"stress")==0) dump_what=DUMP_STRESS;
-  else if(strcmp(arg[iarg],"id")==0) dump_what=DUMP_ID;
-  else error->all("Unknown dump quantity in dump mesh");
+  bool hasargs = true;
+  while (iarg < narg && hasargs)
+  {
+      hasargs = false;
+      if(strcmp(arg[iarg],"stress")==0)
+      {
+          dump_what |= DUMP_STRESS;
+          iarg++;
+          hasargs = true;
+      }
+      else if(strcmp(arg[iarg],"id")==0)
+      {
+          dump_what |= DUMP_ID;
+          iarg++;
+          hasargs = true;
+      }
+      else if(strcmp(arg[iarg],"wear")==0)
+      {
+          dump_what |= DUMP_WEAR;
+          iarg++;
+          hasargs = true;
+      }
+  }
 
-  iarg++;
+  if(dump_what == 0) error->all("Dump mesh: No dump quantity selected");
 
   meshid_len=narg-iarg;
   meshid=new char*[meshid_len];
@@ -172,7 +193,7 @@ void DumpMesh::header_item(int ndump)
 void DumpMesh::footer_item()
 {
   return;
-  //if (comm->me!=0) return;
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -219,10 +240,11 @@ void DumpMesh::write_item(int n, double *mybuf)
       m+=3;
   }
 
-  if(dump_what==DUMP_STRESS)
+  fprintf(fp,"CELL_DATA %d\n",nTriGes);
+
+  if(dump_what & DUMP_STRESS)
   {
       //write pressure and shear stress
-      fprintf(fp,"CELL_DATA %d\n",nTriGes);
       fprintf(fp,"SCALARS pressure float 1\nLOOKUP_TABLE default\n");
       for (int i = 0; i < STLList_len; i++) {
           for (int j=0;j<STLList[i]->nTri;j++){
@@ -238,14 +260,24 @@ void DumpMesh::write_item(int n, double *mybuf)
           }
       }
   }
-  else if(dump_what==DUMP_ID)
+  if(dump_what & DUMP_ID)
   {
-      //write pressure and shear stress
-      fprintf(fp,"CELL_DATA %d\n",nTriGes);
+      //write id
       fprintf(fp,"SCALARS meshid int 1\nLOOKUP_TABLE default\n");
       for (int i = 0; i < STLList_len; i++) {
           for (int j=0;j<STLList[i]->nTri;j++){
               fprintf(fp,"%d\n",j);
+              //fprintf(fp,"%f\n",(STLList[i]->Area[j]));
+          }
+      }
+  }
+  if(dump_what & DUMP_WEAR)
+  {
+      //write wear data
+      fprintf(fp,"SCALARS wear float 1\nLOOKUP_TABLE default\n");
+      for (int i = 0; i < STLList_len; i++) {
+          for (int j=0;j<STLList[i]->nTri;j++){
+              fprintf(fp,"%f\n",STLList[i]->wear[j]);
               //fprintf(fp,"%f\n",(STLList[i]->Area[j]));
           }
       }

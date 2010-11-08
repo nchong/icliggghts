@@ -31,6 +31,7 @@ namespace LAMMPS_NS {
 
 class FixCfdCoupling : public Fix {
  friend class CfdRegionmodel;
+ friend class CfdDatacoupling;
  public:
   FixCfdCoupling(class LAMMPS *, int, char **);
   ~FixCfdCoupling();
@@ -55,17 +56,24 @@ class FixCfdCoupling : public Fix {
   void push(char *name,char *type,void *&ptr);
 
   void add_push_property(char *name,char *type);
+  void add_push_prop(char *name,char *type);
   void add_pull_property(char *name,char *type);
+  void add_pull_prop(char *name,char *type);
+
+  virtual void special_settings() =0;
+
+  int coupleThis() {return master->couple_this;}
+
+ protected:
+  int couple_this;
+  class FixCfdCoupling *master;
+  int iarg;
+
+ private:
 
   void* find_property(int flag,char *name,char *type,int &len1,int &len2);
   void* find_pull_property(char *name,char *type,int &len1,int &len2);
   void* find_push_property(char *name,char *type,int &len1,int &len2);
-  virtual void special_settings() =0;
-
- protected:
-  int couple_this;
-
- private:
 
   int couple_nevery,ts_create;
 

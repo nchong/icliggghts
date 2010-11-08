@@ -53,7 +53,7 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
 
   if (narg < 5) error->all("Illegal fix couple/cfd/file command");
 
-  int iarg = 3;
+  iarg = 3;
   couple_nevery = atoi(arg[iarg++]);
   if(couple_nevery<=0)error->all("Fix couple/cfd/file: nevery must be >0");
 
@@ -79,7 +79,7 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
       else if (strcmp(arg[iarg],#key) == 0) rm = new Class(lmp,iarg+1,narg,arg,this);
       #include "style_cfd_regionmodel.h"
       #undef CFD_REGIONMODEL_CLASS
-      else error->all("Unknown cfd regionmodel style");
+      
   }
 
   if(rm) iarg = rm->get_iarg();
@@ -143,6 +143,15 @@ int FixCfdCoupling::setmask()
 
 void FixCfdCoupling::init()
 {
+  
+  master = NULL;
+  for(int ifix = 0; ifix < modify->nfix; ifix++)
+  {
+        if(strncmp("couple/cfd",modify->fix[ifix]->style,10) == 0)
+           master = static_cast<FixCfdCoupling*>(modify->fix[ifix]);
+  }
+  if(!master) master = this;
+
   if (strcmp(update->integrate_style,"respa") == 0)
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 
@@ -181,6 +190,12 @@ void FixCfdCoupling::pull(char *name,char *type,void *&ptr)
 
 void FixCfdCoupling::add_pull_property(char *name,char *type)
 {
+   master->add_pull_prop(name,type);
+
+}
+
+void FixCfdCoupling::add_pull_prop(char *name,char *type)
+{
     if(strlen(name) >= MAXLENGTH) error->all("Fix couple/cfd: Maximum string length for a variable exceeded");
     if(npull >= nvalues_max) grow_();
 
@@ -196,7 +211,14 @@ void FixCfdCoupling::add_pull_property(char *name,char *type)
 }
 
 /* ---------------------------------------------------------------------- */
+
 void FixCfdCoupling::add_push_property(char *name,char *type)
+{
+   master->add_push_prop(name,type);
+
+}
+
+void FixCfdCoupling::add_push_prop(char *name,char *type)
 {
     if(strlen(name) >= MAXLENGTH) error->all("Fix couple/cfd: Maximum string length for a variable exceeded");
     if(npush >= nvalues_max) grow_();
@@ -225,8 +247,7 @@ void* FixCfdCoupling::find_push_property(char *name,char *type,int &len1,int &le
 
 void* FixCfdCoupling::find_property(int push,char *name,char *type,int &len1,int &len2)
 {
-    fprintf(screen,"find_property called for %s, var %s, type %s\n",push==1?"push":"pull",name,type);
-
+    
     void *ptr = NULL;
     int flag = 0;
 
