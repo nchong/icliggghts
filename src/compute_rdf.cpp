@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -18,6 +18,7 @@
 #include "mpi.h"
 #include "math.h"
 #include "stdlib.h"
+#include "string.h"
 #include "compute_rdf.h"
 #include "atom.h"
 #include "update.h"
@@ -120,7 +121,11 @@ void ComputeRDF::init()
 {
   int i,m;
 
-  if (force->pair) delr = force->pair->cutforce / nbin;
+  if (force->pair)  
+  {
+      if(strcmp(style,"rdf") == 0) delr = force->pair->cutforce / nbin;
+      else delr = (force->pair->cutforce + neighbor->skin) / nbin;
+  }
   else error->all("Compute rdf requires a pair style be defined");
   delrinv = 1.0/delr;
 
@@ -277,9 +282,9 @@ void ComputeRDF::compute_array()
       for (ibin = 0; ibin < nbin; ibin++) {
 	rlower = ibin*delr;
 	rupper = (ibin+1)*delr;
-	nideal = constant * 
+	nideal = constant *
 	  (rupper*rupper*rupper - rlower*rlower*rlower) * jcount[m];
-	if (icount[m]*nideal != 0.0) 
+	if (icount[m]*nideal != 0.0)
 	  gr = histall[m][ibin] / (icount[m]*nideal);
 	else gr = 0.0;
 	ncoord += gr*nideal;
@@ -297,7 +302,7 @@ void ComputeRDF::compute_array()
 	rlower = ibin*delr;
 	rupper = (ibin+1)*delr;
 	nideal = constant * (rupper*rupper - rlower*rlower) * jcount[m];
-	if (icount[m]*nideal != 0.0) 
+	if (icount[m]*nideal != 0.0)
 	  gr = histall[m][ibin] / (icount[m]*nideal);
 	else gr = 0.0;
 	ncoord += gr*nideal;

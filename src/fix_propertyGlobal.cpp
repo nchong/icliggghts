@@ -94,10 +94,10 @@ FixPropertyGlobal::FixPropertyGlobal(LAMMPS *lmp, int narg, char **arg) :
     array_recomputed = NULL;
     if(svmStyle == FIXPROPERTYTYPE_GLOBAL_MATRIX)
     {
-        array = (double**)memory->smalloc(size_array_cols*sizeof(double**),"FixPropGlob:array");
-        array_recomputed = (double**)memory->smalloc(size_array_cols*sizeof(double**),"FixPropGlob:array_recomputed");
-        for(int i = 0; i < size_array_cols; i++) array[i] = &values[i*size_array_rows];
-        for(int i = 0; i < size_array_cols; i++) array_recomputed[i] = &values_recomputed[i*size_array_rows];
+        array = (double**)memory->smalloc(size_array_rows*sizeof(double**),"FixPropGlob:array");
+        array_recomputed = (double**)memory->smalloc(size_array_rows*sizeof(double**),"FixPropGlob:array_recomputed");
+        for(int i = 0; i < size_array_rows; i++) array[i] = &values[i*size_array_cols];
+        for(int i = 0; i < size_array_rows; i++) array_recomputed[i] = &values_recomputed[i*size_array_cols];
     }
 }
 
@@ -114,6 +114,19 @@ FixPropertyGlobal::~FixPropertyGlobal()
   if(array_recomputed) delete[] array_recomputed;
 }
 
+/* ---------------------------------------------------------------------- */
+
+void FixPropertyGlobal::init()
+{
+    char errmsg[200];
+    sprintf(errmsg,"Fix property/global: Length not sufficient for variable ");
+    strcat(errmsg,variablename);
+    if(strcmp(style,"property/peratomtype") == 0 && nvalues < atom->ntypes) error->all(errmsg);
+    if(strcmp(style,"property/peratomtypepair") == 0 && nvalues < atom->ntypes*atom->ntypes) error->all(errmsg);
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixPropertyGlobal::grow(int len1, int len2)
 {
     if(svmStyle == FIXPROPERTYTYPE_GLOBAL_SCALAR) error->all("Can not grow global property of type scalar");
@@ -126,7 +139,8 @@ void FixPropertyGlobal::grow(int len1, int len2)
         values = (double*) memory->srealloc(values,len1*len2*sizeof(double),"FixPropertyGlobal:values");
         size_array_rows = len1;
         size_array_cols = len2;
-        array = (double**)memory->srealloc(array,size_array_cols*sizeof(double**),"FixPropGlob:array");
+        nvalues = len1*len2;
+        array = (double**)memory->srealloc(array,size_array_rows*sizeof(double**),"FixPropGlob:array");
         for(int i = 0; i < size_array_rows; i++) array[i] = &values[i*size_array_cols];
     }
 }
@@ -173,10 +187,7 @@ double FixPropertyGlobal::compute_array(int i, int j) //i is row, j is column
     if (i>(size_array_rows-1))error->all("Trying to access matrix in fix property/global, but row index out of bounds");
     if (j>(size_array_cols-1))error->all("Trying to access matrix in fix property/global, but column index out of bounds");
 
-    int ind;
-    ind = (i*size_array_cols)+j;
-
-    return values[ind];
+    return array[i][j];
 }
 
 void FixPropertyGlobal::array_modify(int i, int j,double val) //i is row, j is column
@@ -225,6 +236,7 @@ void FixPropertyGlobal::new_array(int l1,int l2)
     array_flag = 1;
     size_array_rows = l1;
     size_array_cols = l2;
+    nvalues = l1*l2;
 
     array = (double**)memory->create_2d_double_array(size_array_rows,size_array_cols,"FixPropGlob:array");
     array_recomputed = (double**)memory->create_2d_double_array(size_array_rows,size_array_cols,"FixPropGlob:array_recomputed");

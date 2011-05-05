@@ -45,6 +45,7 @@ class FixPourDev : public Fix {
   ~FixPourDev();
   int setmask();
   virtual void init();
+  virtual void post_create(){}
   void pre_exchange();
   void reset_dt();
   void write_restart(FILE *);

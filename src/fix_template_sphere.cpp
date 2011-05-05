@@ -56,11 +56,11 @@ FixTemplateSphere::FixTemplateSphere(LAMMPS *lmp, int narg, char **arg) :
   PI = 4.0*atan(1.0);
   iarg = 4;
 
-  if(strcmp(this->style,"particletemplate/sphere")==0)nspheres=1;
+  if(strcmp(this->style,"particletemplate/sphere")==0) nspheres=1;
   else
   {
-      nspheres=atoi(arg[iarg]);
-      iarg++;
+      if (strcmp(arg[iarg++],"nspheres") != 0) error->all("Illegal fix particletemplate command, expecting argument 'nspheres'");
+      nspheres=atoi(arg[iarg++]);
   }
   x_sphere=NULL;
   x_sphere_b=NULL;

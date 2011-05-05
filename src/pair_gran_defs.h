@@ -1,5 +1,5 @@
     //use #define here, so we dont allocate new properties unnecessarily
-    //Atom types start from 1, not zero (this is ensured by fix/pour)
+    //Atom types start from 1, not to zero (this is ensured by fix/pour)
 
 #ifdef LMP_GRAN_DEFS_DEFINE
     #define itype (atom->type[ip])

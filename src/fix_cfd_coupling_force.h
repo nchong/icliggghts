@@ -21,6 +21,7 @@ See the README file in the top-level LAMMPS directory.
 #ifdef FIX_CLASS
 
 FixStyle(couple/cfd/force,FixCfdCouplingForce)
+FixStyle(couple/cfd/dragforce,FixCfdCouplingForce)
 
 #else
 
@@ -35,6 +36,7 @@ class FixCfdCouplingForce : public FixCfdCoupling {
  public:
   FixCfdCouplingForce(class LAMMPS *, int, char **);
   ~FixCfdCouplingForce();
+  void pre_delete();
   virtual int setmask();
   virtual void init_submodel();
   virtual void post_force(int);

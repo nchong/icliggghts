@@ -91,11 +91,15 @@ FixMeshGran::FixMeshGran(LAMMPS *lmp, int narg, char **arg) :
   EDGE_INACTIVE=STLdata->EDGE_INACTIVE;
   CORNER_INACTIVE=STLdata->CORNER_INACTIVE;
 
-  calcTriCharacteristics(STLdata->nTri,STLdata->node,STLdata->cK,STLdata->ogK,STLdata->ogKlen,STLdata->oKO,STLdata->rK,STLdata->Area,STLdata->facenormal,STLdata->neighfaces,STLdata->contactInactive);
+  if(!modify->fix_restart_in_progress())calcTriCharacteristics(STLdata->nTri,STLdata->node,STLdata->cK,STLdata->ogK,STLdata->ogKlen,STLdata->oKO,STLdata->rK,STLdata->Area,STLdata->facenormal,STLdata->neighfaces,STLdata->contactInactive);
 
   if  (comm->me==0) fprintf(screen,"\nImport of %d triangles completed successfully!\n\n",STLdata->nTri);
 
   Temp_mesh = -1.;
+
+  STLdata->conv_vel[0] = 0.;
+  STLdata->conv_vel[1] = 0.;
+  STLdata->conv_vel[2] = 0.;
 
   bool hasargs = true;
   while(iarg < narg && hasargs)
@@ -134,11 +138,6 @@ FixMeshGran::FixMeshGran(LAMMPS *lmp, int narg, char **arg) :
   p_ref[0]=0.;p_ref[2]=0.;p_ref[2]=0.;
 
   restart_global=1;
-
-  STLdata->conv_vel[0]=0.;
-  STLdata->conv_vel[1]=0.;
-  STLdata->conv_vel[2]=0.;
-
 }
 
 /* ---------------------------------------------------------------------- */

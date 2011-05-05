@@ -138,8 +138,10 @@ void Neighbor::half_from_full_newton(NeighList *list)
       } else {
 	if (j >= nall) j %= nall;
 	if (x[j][2] < ztmp) continue;
-	if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
-	if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
+	if (x[j][2] == ztmp) {
+	  if (x[j][1] < ytmp) continue;
+	  if (x[j][1] == ytmp && x[j][0] < xtmp) continue;
+	}
       }
       neighptr[n++] = joriginal;
     }
@@ -234,7 +236,7 @@ void Neighbor::skip_from(NeighList *list)
 
 void Neighbor::skip_from_granular(NeighList *list)
 {
-  int i,j,ii,jj,n,nn,itype,jnum,joriginal;
+  int i,j,ii,jj,n,nn,itype,jnum,joriginal,d;
   int *neighptr,*jlist,*touchptr,*touchptr_skip;
   double *shearptr,*shearptr_skip;
 
@@ -260,6 +262,7 @@ void Neighbor::skip_from_granular(NeighList *list)
   double **firstshear = listgranhistory->firstdouble;
   int **pages_touch = listgranhistory->pages;
   double **pages_shear = listgranhistory->dpages;
+  int dnum = listgranhistory->dnum;
 
   int inum = 0;
   int npage = 0;
@@ -288,7 +291,7 @@ void Neighbor::skip_from_granular(NeighList *list)
     neighptr = &pages[npage][npnt];
     nn = 0;
     touchptr = &pages_touch[npage][npnt];
-    shearptr = &pages_shear[npage][3*npnt];
+    shearptr = &pages_shear[npage][dnum*npnt];
 
     // loop over parent non-skip granular list and its history info
 
@@ -303,9 +306,9 @@ void Neighbor::skip_from_granular(NeighList *list)
       if (ijskip[itype][type[j]]) continue;
       neighptr[n] = joriginal;
       touchptr[n++] = touchptr_skip[jj];
-      shearptr[nn++] = shearptr_skip[3*jj];
-      shearptr[nn++] = shearptr_skip[3*jj+1];
-      shearptr[nn++] = shearptr_skip[3*jj+2];
+      for (d = 0; d < dnum; d++) {
+        shearptr[nn++] = shearptr_skip[dnum*jj+d];
+      }
     }
 
     ilist[inum++] = i;

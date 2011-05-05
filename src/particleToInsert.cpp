@@ -30,6 +30,7 @@ ParticleToInsert::ParticleToInsert(LAMMPS* lmp,int ns) : Pointers(lmp)
         nspheres=ns;
         x_ins=memory->create_2d_double_array(nspheres,3,"x_ins");
         radius_ins=new double[nspheres];
+        x_bound=new double[3];
         xcm=new double[3];
         inertia=new double[3];
         ex_space=new double[3];
@@ -42,6 +43,7 @@ ParticleToInsert::~ParticleToInsert()
 {
         memory->destroy_2d_double_array(x_ins);
         delete []radius_ins;
+        delete []x_bound;
         delete []xcm;
         delete []inertia;
         delete []ex_space;
@@ -56,11 +58,18 @@ void ParticleToInsert::random_rotate(double rn1,double rn2, double rn3)
     if(nspheres==1)return;
 
     double *vert_before_rot;
-    double *vert_after_rot=new double[3];
+    double vert_after_rot[3];
 
     double phix=rn1*2.*M_PI;
     double phiy=rn2*2.*M_PI;
     double phiz=rn3*2.*M_PI;
+
+    double cos_phix = cos(phix);
+    double cos_phiy = cos(phiy);
+    double cos_phiz = cos(phiz);
+    double sin_phix = sin(phix);
+    double sin_phiy = sin(phiy);
+    double sin_phiz = sin(phiz);
 
     for(int i=0;i<3;i++)
     {
@@ -68,9 +77,9 @@ void ParticleToInsert::random_rotate(double rn1,double rn2, double rn3)
         else if(i==1) vert_before_rot=ey_space;
         else if(i==2) vert_before_rot=ez_space;
 
-        vert_after_rot[0] = vert_before_rot[0]*cos(phiy)*cos(phiz)+vert_before_rot[1]*(cos(phiz)*sin(phix)*sin(phiy)-cos(phix)*sin(phiz))+vert_before_rot[2]*(cos(phix)*cos(phiz)*sin(phiy)+sin(phix)*sin(phiz));
-        vert_after_rot[1] = vert_before_rot[0]*cos(phiy)*sin(phiz)+vert_before_rot[2]*(-cos(phiz)*sin(phix)+cos(phix)*sin(phiy)*sin(phiz))+vert_before_rot[1]*(cos(phix)*cos(phiz)+sin(phix)*sin(phiy)*sin(phiz));
-        vert_after_rot[2] = vert_before_rot[2]*cos(phix)*cos(phiy)+vert_before_rot[1]*cos(phiy)*sin(phix)-vert_before_rot[0]*sin(phiy);
+        vert_after_rot[0] = vert_before_rot[0]*cos_phiy*cos_phiz+vert_before_rot[1]*(cos_phiz*sin_phix*sin_phiy-cos_phix*sin_phiz)+vert_before_rot[2]*(cos_phix*cos_phiz*sin_phiy+sin_phix*sin_phiz);
+        vert_after_rot[1] = vert_before_rot[0]*cos_phiy*sin_phiz+vert_before_rot[2]*(-cos_phiz*sin_phix+cos_phix*sin_phiy*sin_phiz)+vert_before_rot[1]*(cos_phix*cos_phiz+sin_phix*sin_phiy*sin_phiz);
+        vert_after_rot[2] = vert_before_rot[2]*cos_phix*cos_phiy+vert_before_rot[1]*cos_phiy*sin_phix-vert_before_rot[0]*sin_phiy;
 
         if     (i==0) for(int j=0;j<3;j++) ex_space[j]=vert_after_rot[j];
         else if(i==1) for(int j=0;j<3;j++) ey_space[j]=vert_after_rot[j];
@@ -83,6 +92,5 @@ void ParticleToInsert::random_rotate(double rn1,double rn2, double rn3)
         x_ins[i][1] = xcm[1] + ex_space[1]*displace[i][0] +   ey_space[1]*displace[i][1] +   ez_space[1]*displace[i][2];
         x_ins[i][2] = xcm[2] + ex_space[2]*displace[i][0] +   ey_space[2]*displace[i][1] +   ez_space[2]*displace[i][2];
     }
-    delete []vert_after_rot;
-    
+
 }

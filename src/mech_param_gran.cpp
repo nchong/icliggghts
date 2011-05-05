@@ -33,42 +33,28 @@ See the README file in the top-level LAMMPS directory.
 #include "fix_wall_gran_hooke_history.h"
 #include "fix_meshGran.h"
 
-#define MUCH 1000000
-
 using namespace LAMMPS_NS;
 
 enum{MESHGRAN,XPLANE,YPLANE,ZPLANE,ZCYLINDER};
 
 MechParamGran::MechParamGran(LAMMPS *lmp): Pointers(lmp)
 {
-    Yeff=NULL;
-    veff=NULL;
-    Geff=NULL;
-    betaeff=NULL;
-    cohEnergyDens=NULL;
-    coeffRestLog=NULL;
-    coeffFrict=NULL;
-    charVel=0;
-    arrays_active=false;
 }
 
 MechParamGran::~MechParamGran()
 {
-    destroy_arrays();
 }
 
-void MechParamGran::getMaterialParams(int charVelFlag, int cohesionflag)
+int MechParamGran::max_type()
 {
-  if(charVelFlag&&cohesionflag) error->warning("Cohesion model should only be used with hertzian contact laws.");
-
   //loop over all particles to check how many atom types are present
-  min_type=1;
-  max_type=1;
+  mintype=1;
+  maxtype=1;
 
   for (int i=0;i<atom->nlocal;i++)
   {
-      if (atom->type[i]<min_type) min_type=atom->type[i];
-      if (atom->type[i]>max_type) max_type=atom->type[i];
+      if (atom->type[i]<mintype) mintype=atom->type[i];
+      if (atom->type[i]>maxtype) maxtype=atom->type[i];
   }
 
   //check all fixes of type pour
@@ -79,111 +65,46 @@ void MechParamGran::getMaterialParams(int charVelFlag, int cohesionflag)
       {
           int tp_min=static_cast<FixPourDev*>(lmp->modify->fix[i])->ntype_min;
           int tp_max=static_cast<FixPourDev*>(lmp->modify->fix[i])->ntype_max;
-          if(tp_min<min_type) min_type=tp_min;
-          if(tp_max>max_type) max_type=tp_max;
+          if(tp_min<mintype) mintype=tp_min;
+          if(tp_max>maxtype) maxtype=tp_max;
       }
       else if(strncmp(lmp->modify->fix[i]->style,"pour",4)==0)
       {
           int tp=static_cast<FixPour*>(lmp->modify->fix[i])->ntype;
-          if(tp<min_type) min_type=tp;
-          if(tp>max_type) max_type=tp;
+          if(tp<mintype) mintype=tp;
+          if(tp>maxtype) maxtype=tp;
       }
       else if(strncmp(lmp->modify->fix[i]->style,"wall/gran",8)==0)
       {
-          FixWallGranHookeHistory* fwg=static_cast<FixWallGranHookeHistory*>(lmp->modify->fix[i]);
-          if(fwg->wallstyle==MESHGRAN)
+          FixWallGran* fwg=static_cast<FixWallGran*>(lmp->modify->fix[i]);
+          if(fwg->meshwall)
           {
               for(int j=0;j<fwg->nFixMeshGran;j++)
               {
                 int tp=fwg->FixMeshGranList[j]->atom_type_wall;
-                if(tp<min_type) min_type=tp;
-                if(tp>max_type) max_type=tp;
+                if(tp<mintype) mintype=tp;
+                if(tp>maxtype) maxtype=tp;
               }
           }
           else
           {
             int tp=fwg->atom_type_wall;
-            if(tp<min_type) min_type=tp;
-            if(tp>max_type) max_type=tp;
+            if(tp<mintype) mintype=tp;
+            if(tp>maxtype) maxtype=tp;
           }
       }
   }
 
   //Get min/max from other procs
-  int min_type_all,max_type_all;
-  MPI_Allreduce(&min_type,&min_type_all, 1, MPI_INT, MPI_MIN, world);
-  MPI_Allreduce(&max_type,&max_type_all, 1, MPI_INT, MPI_MAX, world);
-  min_type=min_type_all;
-  max_type=max_type_all;
+  int mintype_all,maxtype_all;
+  MPI_Allreduce(&mintype,&mintype_all, 1, MPI_INT, MPI_MIN, world);
+  MPI_Allreduce(&maxtype,&maxtype_all, 1, MPI_INT, MPI_MAX, world);
+  mintype=mintype_all;
+  maxtype=maxtype_all;
 
   //error check
-  if(min_type!=1) error->all("Atom types must start from 1 for granular simulations");
-  if(max_type > atom->ntypes) error->all("Please increase the number of atom types in the 'create_box' command to match the number of atom types you use in the simulation");
+  if(mintype != 1) error->all("Atom types must start from 1 for granular simulations");
+  if(maxtype > atom->ntypes) error->all("Please increase the number of atom types in the 'create_box' command to match the number of atom types you use in the simulation");
 
-  //Get pointer to the fixes that have the material properties
-  
-  Y1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("youngsModulus","property/global","peratomtype",max_type,0)]);
-  v1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("poissonsRatio","property/global","peratomtype",max_type,0)]);
-
-  coeffRest1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRestitution","property/global","peratomtypepair",max_type,max_type)]);
-  coeffFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientFriction","property/global","peratomtypepair",max_type,max_type)]);
-
-  if(cohesionflag)
-    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type)]);
-  if(charVelFlag)
-    charVel1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("characteristicVelocity","property/global","scalar",0,0)]);
-
-  if (arrays_active) destroy_arrays();
-  create_arrays(max_type+1);
-
-  //pre-calculate parameters for possible contact material combinations
-  for(int i=1;i< max_type+1; i++)
-  {
-      for(int j=1;j<max_type+1;j++)
-      {
-          double Yi=Y1->compute_vector(i-1);
-          double Yj=Y1->compute_vector(j-1);
-          double vi=v1->compute_vector(i-1);
-          double vj=v1->compute_vector(j-1);
-
-          Yeff[i][j] = 1./((1.-pow(vi,2.))/Yi+(1.-pow(vj,2.))/Yj);
-          Geff[i][j] = 1./(2.*(2.-vi)*(1.+vi)/Yi+2.*(2.-vj)*(1.+vj)/Yj);
-
-          coeffRestLog[i][j] = log(coeffRest1->compute_array(i-1,j-1));
-
-          betaeff[i][j] =coeffRestLog[i][j] /sqrt(pow(coeffRestLog[i][j],2.)+pow(M_PI,2.));
-
-          coeffFrict[i][j] = coeffFrict1->compute_array(i-1,j-1);
-
-          if(cohesionflag) cohEnergyDens[i][j] = cohEnergyDens1->compute_array(i-1,j-1);
-          //omitting veff here
-
-      }
-  }
-  if(charVelFlag) charVel=charVel1->compute_scalar();
-
-}
-
-void MechParamGran::create_arrays(int len)
-{
-    Yeff=memory->create_2d_double_array(len,len,"MechParamGran: Yeff");
-    Geff=memory->create_2d_double_array(len,len,"MechParamGran: Geff");
-    betaeff=memory->create_2d_double_array(len,len,"MechParamGran: betaeff");
-    veff=memory->create_2d_double_array(len,len,"MechParamGran: veff");
-    cohEnergyDens=memory->create_2d_double_array(len,len,"MechParamGran: cohEnergyDens");
-    coeffRestLog=memory->create_2d_double_array(len,len,"MechParamGran: coeffRest");
-    coeffFrict=memory->create_2d_double_array(len,len,"MechParamGran: coeffFrict");
-    arrays_active=true;
-}
-
-void MechParamGran::destroy_arrays()
-{
-    memory->destroy_2d_double_array(Yeff);
-    memory->destroy_2d_double_array(Geff);
-    memory->destroy_2d_double_array(betaeff);
-    memory->destroy_2d_double_array(veff);
-    memory->destroy_2d_double_array(cohEnergyDens);
-    memory->destroy_2d_double_array(coeffRestLog);
-    memory->destroy_2d_double_array(coeffFrict);
-    arrays_active=false;
+  return maxtype;
 }

@@ -31,53 +31,47 @@ PairStyle(gran/hooke/history,PairGranHookeHistory)
 #ifndef LMP_PAIR_GRAN_HOOKE_HISTORY_H
 #define LMP_PAIR_GRAN_HOOKE_HISTORY_H
 
-#include "pair.h"
-#include "fix_propertyGlobal.h"
+#include "pair_gran.h"
 
 namespace LAMMPS_NS {
 
-class PairGranHookeHistory : public Pair {
+class PairGranHookeHistory : public PairGran {
+
+ friend class FixWallGranHookeHistory;
+ friend class FixCheckTimestepGran;
+
  public:
-  friend class FixWallGranHookeHistory;
-  friend class FixCheckTimestepGran;
+
   PairGranHookeHistory(class LAMMPS *);
   ~PairGranHookeHistory();
-  virtual void compute(int, int);
+  virtual void compute(int, int,int);
   virtual void settings(int, char **);
-  virtual void coeff(int, char **);
-  virtual void init_style();
   virtual void init_substyle(); 
-  virtual void init_list(int, class NeighList *);
-  virtual double init_one(int, int);
-  virtual void write_restart(FILE *);
-  virtual void read_restart(FILE *);
   virtual void write_restart_settings(FILE *);
   virtual void read_restart_settings(FILE *);
-  virtual void reset_dt();
 
  protected:
 
-   class MechParamGran *mpg;
+  virtual void history_args(char**);
+  virtual void allocate_properties(int);
 
-   class FixRigid* fr;
+  class FixPropertyGlobal* Y1; //Youngs Modulus
+  class FixPropertyGlobal* v1; //Poisson's ratio
+  class FixPropertyGlobal* cohEnergyDens1; //Cohesion energy density
 
-  virtual void deriveContactModelParams(int &, int &,double &, double &, double &,double &, double &, double &, double &);
+  class FixPropertyGlobal* coeffRest1; //coefficient of restitution
+  class FixPropertyGlobal* coeffFrict1; //coefficient of (static) friction
+  class FixPropertyGlobal* coeffRollFrict1; //characteristic velocity needed for Linear Spring Model
+
+  class FixPropertyGlobal* charVel1; //characteristic velocity needed for Linear Spring Model
+
+  double **Yeff,**Geff,**betaeff,**veff,**cohEnergyDens,**coeffRestLog,**coeffFrict,charVel,**coeffRollFrict;
+
+  virtual void deriveContactModelParams(int &, int &,double &, double &, double &,double &, double &, double &, double &,double &);
   virtual void addCohesionForce(int &, int &,double &,double &);
 
   int cohesionflag; 
-
-  virtual class MechParamGran* getMatProp();
-  
-  int dampflag;
-  double dt;
-  int freeze_group_bit;
-  int history;
-  class FixShearHistory *fix_history;
-
-  double *onerad_dynamic,*onerad_frozen;
-  double *maxrad_dynamic,*maxrad_frozen;
-
-  void allocate();
+  int dampflag,rollingflag; 
 };
 
 }

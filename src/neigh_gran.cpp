@@ -1,21 +1,28 @@
 /* ----------------------------------------------------------------------
-   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+LIGGGHTS - LAMMPS Improved for General Granular and Granular Heat
+Transfer Simulations
 
-   Copyright (2003) Sandia Corporation.  Under the terms of Contract
-   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
-   the GNU General Public License.
+www.liggghts.com | www.cfdem.com
+Christoph Kloss, christoph.kloss@cfdem.com
 
-   See the README file in the top-level LAMMPS directory.
+LIGGGHTS is based on LAMMPS
+LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+http://lammps.sandia.gov, Sandia National Laboratories
+Steve Plimpton, sjplimp@sandia.gov
+
+Copyright (2003) Sandia Corporation. Under the terms of Contract
+DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+certain rights in this software. This software is distributed under
+the GNU General Public License.
+
+See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "atom.h"
 #include "group.h"
-#include "fix_shear_history.h"
+#include "fix_contact_history.h"
 #include "error.h"
 
 using namespace LAMMPS_NS;
@@ -30,7 +37,7 @@ using namespace LAMMPS_NS;
 
 void Neighbor::granular_nsq_no_newton(NeighList *list)
 {
-  int i,j,m,n,nn,bitmask;
+  int i,j,m,n,nn,bitmask,d;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
   double radi,radsum,cutsq;
   int *neighptr,*touchptr;
@@ -38,11 +45,12 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 
   NeighList *listgranhistory;
   int *npartner,**partner;
-  double ***shearpartner;
+  double ***contacthistory;
   int **firsttouch;
   double **firstshear;
   int **pages_touch;
   double **pages_shear;
+  int dnum; 
 
   double **x = atom->x;
   double *radius = atom->radius;
@@ -62,16 +70,17 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
   int **firstneigh = list->firstneigh;
   int **pages = list->pages;
 
-  FixShearHistory *fix_history = list->fix_history;
+  FixContactHistory *fix_history = list->fix_history; 
   if (fix_history) {
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner;
+    contacthistory = fix_history->contacthistory;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
     pages_touch = listgranhistory->pages;
     pages_shear = listgranhistory->dpages;
+    dnum = listgranhistory->dnum; 
   }
 
   int inum = 0;
@@ -97,7 +106,7 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
     if (fix_history) {
       nn = 0;
       touchptr = &pages_touch[npage][npnt];
-      shearptr = &pages_shear[npage][3*npnt];
+      shearptr = &pages_shear[npage][dnum*npnt]; 
     }
 
     xtmp = x[i][0];
@@ -127,26 +136,26 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 	      if (partner[i][m] == tag[j]) break;
 	    if (m < npartner[i]) {
 	      touchptr[n] = 1;
-	      shearptr[nn++] = shearpartner[i][m][0];
-	      shearptr[nn++] = shearpartner[i][m][1];
-	      shearptr[nn++] = shearpartner[i][m][2];
+	      for (d = 0; d < dnum; d++) {  
+	        shearptr[nn++] = contacthistory[i][m][d];
+	      }
 	    } else {
 	      touchptr[n] = 0;
-	      shearptr[nn++] = 0.0;
-	      shearptr[nn++] = 0.0;
-	      shearptr[nn++] = 0.0;
+	      for (d = 0; d < dnum; d++) {  
+	        shearptr[nn++] = 0.0;
+	      }
 	    }
 	  } else {
 	    touchptr[n] = 0;
-	    shearptr[nn++] = 0.0;
-	    shearptr[nn++] = 0.0;
-	    shearptr[nn++] = 0.0;
+	    for (d = 0; d < dnum; d++) {  
+	      shearptr[nn++] = 0.0;
+	    }
 	  }
 	}
 
 	n++;
       }
-    }	       
+    }
 
     ilist[inum++] = i;
     firstneigh[i] = neighptr;
@@ -231,9 +240,10 @@ void Neighbor::granular_nsq_newton(NeighList *list)
 	  if ((itag+jtag) % 2 == 1) continue;
 	} else {
 	  if (x[j][2] < ztmp) continue;
-	  else if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
-	  else if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp)
-	    continue;
+	  if (x[j][2] == ztmp) {
+	    if (x[j][1] < ytmp) continue;
+	    if (x[j][1] == ytmp && x[j][0] < xtmp) continue;
+	  }
 	}
       }
 
@@ -245,7 +255,7 @@ void Neighbor::granular_nsq_newton(NeighList *list)
       rsq = delx*delx + dely*dely + delz*delz;
       radsum = radi + radius[j];
       cutsq = (radsum+skin) * (radsum+skin);
-      
+
       if (rsq <= cutsq) neighptr[n++] = j;
     }
 
@@ -271,7 +281,7 @@ void Neighbor::granular_nsq_newton(NeighList *list)
 
 void Neighbor::granular_bin_no_newton(NeighList *list)
 {
-  int i,j,k,m,n,nn,ibin;
+  int i,j,k,m,n,nn,ibin,d;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
   double radi,radsum,cutsq;
   int *neighptr,*touchptr;
@@ -279,11 +289,12 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 
   NeighList *listgranhistory;
   int *npartner,**partner;
-  double ***shearpartner;
+  double ***contacthistory;
   int **firsttouch;
   double **firstshear;
   int **pages_touch;
   double **pages_shear;
+  int dnum; 
 
   // bin local & ghost atoms
 
@@ -307,16 +318,17 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
   int nstencil = list->nstencil;
   int *stencil = list->stencil;
 
-  FixShearHistory *fix_history = list->fix_history;
+  FixContactHistory *fix_history = list->fix_history; 
   if (fix_history) {
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner;
+    contacthistory = fix_history->contacthistory;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
     pages_touch = listgranhistory->pages;
     pages_shear = listgranhistory->dpages;
+    dnum = listgranhistory->dnum; 
   }
 
   int inum = 0;
@@ -342,7 +354,7 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
     if (fix_history) {
       nn = 0;
       touchptr = &pages_touch[npage][npnt];
-      shearptr = &pages_shear[npage][3*npnt];
+      shearptr = &pages_shear[npage][dnum*npnt]; 
     }
 
     xtmp = x[i][0];
@@ -374,23 +386,23 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 	  if (fix_history) {
 	    if (rsq < radsum*radsum) {
 	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		shearptr[nn++] = shearpartner[i][m][0];
-		shearptr[nn++] = shearpartner[i][m][1];
-		shearptr[nn++] = shearpartner[i][m][2];
-	      } else {
-		touchptr[n] = 0;
-		shearptr[nn++] = 0.0;
-		shearptr[nn++] = 0.0;
-		shearptr[nn++] = 0.0;
-	      }
+            if (partner[i][m] == tag[j]) break;
+            if (m < npartner[i]) {
+                touchptr[n] = 1;
+                for (d = 0; d < dnum; d++) { 
+                  shearptr[nn++] = contacthistory[i][m][d];
+                }
+	        } else {
+              touchptr[n] = 0;
+              for (d = 0; d < dnum; d++) { 
+                shearptr[nn++] = 0.0;
+              }
+	        }
 	    } else {
 	      touchptr[n] = 0;
-	      shearptr[nn++] = 0.0;
-	      shearptr[nn++] = 0.0;
-	      shearptr[nn++] = 0.0;
+	      for (d = 0; d < dnum; d++) { 
+	        shearptr[nn++] = 0.0;
+	      }
 	    }
 	  }
 
@@ -477,10 +489,13 @@ void Neighbor::granular_bin_newton(NeighList *list)
     for (j = bins[i]; j >= 0; j = bins[j]) {
       if (j >= nlocal) {
 	if (x[j][2] < ztmp) continue;
-	if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
-	if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] < xtmp) continue;
-	if (exclude && exclusion(i,j,type[i],type[j],mask,molecule)) continue;
+	if (x[j][2] == ztmp) {
+	  if (x[j][1] < ytmp) continue;
+	  if (x[j][1] == ytmp && x[j][0] < xtmp) continue;
+	}
       }
+
+      if (exclude && exclusion(i,j,type[i],type[j],mask,molecule)) continue;
 
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
@@ -579,15 +594,22 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
 
     // loop over all atoms in bins in stencil
     // pairs for atoms j "below" i are excluded
-    // below = lower z or (equal z and lower y) or (equal zy and <= x)
-    // this excludes self-self interaction
+    // below = lower z or (equal z and lower y) or (equal zy and lower x)
+    //         (equal zyx and j <= i)
+    // latter excludes self-self interaction but allows superposed atoms
 
     ibin = coord2bin(x[i]);
     for (k = 0; k < nstencil; k++) {
       for (j = binhead[ibin+stencil[k]]; j >= 0; j = bins[j]) {
 	if (x[j][2] < ztmp) continue;
-	if (x[j][2] == ztmp && x[j][1] < ytmp) continue;
-	if (x[j][2] == ztmp && x[j][1] == ytmp && x[j][0] <= xtmp) continue;
+	if (x[j][2] == ztmp) {
+	  if (x[j][1] < ytmp) continue;
+	  if (x[j][1] == ytmp) {
+	    if (x[j][0] < xtmp) continue;
+	    if (x[j][0] == xtmp && j <= i) continue;
+	  }
+	}
+
 	if (exclude && exclusion(i,j,type[i],type[j],mask,molecule)) continue;
 
 	delx = xtmp - x[j][0];

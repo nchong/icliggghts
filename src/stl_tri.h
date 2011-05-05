@@ -42,6 +42,7 @@ class STLtri: protected Pointers {
   void getTriBoundBox(int, double *, double *,double);
   void before_rebuild();
   bool are_coplanar_neighs(int i1,int i2);
+  int mesh_moving(){return (movingMesh | conveyor);}
 
   int nTri,nTriMax;
 
@@ -66,6 +67,7 @@ class STLtri: protected Pointers {
    double **fn_fshear;    
    double *Area;          
    double *wear;          
+   double *wear_step;          
 
    double **cK;
    double ***ogK;

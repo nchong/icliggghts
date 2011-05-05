@@ -3,15 +3,16 @@
 <HEAD>
 	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Linux)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGEDBY" CONTENT="christophkloss ">
-	<META NAME="CHANGED" CONTENT="20100629;10181600">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
+	<META NAME="CHANGED" CONTENT="20110321;12172500">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
 		H3.cjk { font-family: "HG Mincho Light J" }
 		H3.ctl { font-family: "Arial Unicode MS" }
+		PRE.cjk { font-family: "DejaVu Sans", monospace }
 	-->
 	</STYLE>
 </HEAD>
@@ -26,7 +27,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">dump ID group-ID style N file args </PRE>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">dump ID group-ID style N file args </PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">ID = user-assigned name for the
 	dump 
@@ -44,14 +45,14 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 	</P>
 	<LI><P>args = list of arguments for a particular style 
 	</P>
-	<PRE>  <I>atom</I> args = none
+	<PRE CLASS="western">  <I>atom</I> args = none
   <I>cfg</I> args = same as <I>custom</I> args, see below
   <I>dcd</I> args = none
   <I>xtc</I> args = none
   <I>xyz</I> args = none 
   <I>stl</I> args = list of fix mesh/gran Ids to dump
   <I>mesh/gran/VTK</I> args =  dump-identifier  list of mesh IDs (optionally)
-      dump-identifier = 'stress'
+      dump-identifier = 'stress' or 'id' or 'wear' or 'vel'
       list of mesh Ids = list of Ids of fixes of type mesh/gran which should be dumped
   <I>local</I> args = list of local attributes
     possible attributes = index, c_ID, c_ID[N], f_ID, f_ID[N]
@@ -94,7 +95,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </UL>
 <P><B>Examples:</B> 
 </P>
-<PRE>dump myDump all atom 100 dump.atom
+<PRE CLASS="western">dump myDump all atom 100 dump.atom
 dump 2 subgroup atom 50 dump.run.bin
 dump 4a all custom 100 dump.myforce.* id type x y vx fx
 dump 4b flow custom 100 dump.%.myforce id type c_myF[3] v_ke
@@ -103,8 +104,8 @@ dump snap all cfg 100 dump.config.*.cfg id type xs ys zs id type c_Stress<B>2</B
 dump 1 all xtc 1000 file.xtc </PRE><P>
 <B>LIGGGHTS vs. LAMMPS Info: </B>
 </P>
-<P><SPAN STYLE="font-weight: normal">Two new styles (</SPAN><I><SPAN STYLE="font-weight: normal">stl</SPAN></I><SPAN STYLE="font-weight: normal">
-and </SPAN><I><SPAN STYLE="font-weight: normal">mesh</SPAN></I><SPAN STYLE="font-weight: normal">)
+<P><SPAN STYLE="font-weight: normal">Two new styles (</SPAN><I><SPAN STYLE="font-weight: normal">stl</SPAN></I>
+<SPAN STYLE="font-weight: normal">and </SPAN><I><SPAN STYLE="font-weight: normal">mesh</SPAN></I><SPAN STYLE="font-weight: normal">)
 are available for dumping granular mesh geometry into STL files or
 VTK files. The former command is used for dumping only the geometry,
 while the latter command is used to dump the stress calculated on a
@@ -258,16 +259,16 @@ command, the '*' is then replaced by the timestep .<BR>Note: This
 series of files can then be post-processed together with the particle
 dump file converted to VTK in Paraview , <A HREF="http://www.paraview.org/">www.paraview.org</A></P>
 <P>The <I>mesh</I> style can be used to dumps active mesh geometries
-defined via <A HREF="../fix_mesh_gran_stressanalysis.html">fix
-mesh/gran/stressanalysis</A> commands along with stress calculated on
-the mesh into the specified file using a VTK file format. The
-dump-identifier 'stress' is mandatory, the list of mesh IDs is
-optional. As with the <I>stl</I> style, all active meshes are dumped
-if you do not supply the optional list of mesh IDs. By specifying
-list of mesh IDs you can explicitly choose which meshes to dump. The
-group-ID is ignored, because the command is not applied to particles.
-Use a filename like 'mydumpfile.vtk' if the mesh is stationary. <BR>This
-dump is especially useful if one or more fixes of type <A HREF="../fix_move_mesh_gran.html">move/mesh/gran</A>
+defined via <A HREF="../fix_mesh_gran.html">fix mesh/gran</A>
+commands. Different keywords can be used to dump the per-triangle
+stress, id, velocity or wear into the specified file using a VTK file
+format. The list of mesh IDs is optional. As with the <I>stl</I>
+style, all active meshes are dumped if you do not supply the optional
+list of mesh IDs. By specifying list of mesh IDs you can explicitly
+choose which meshes to dump. The group-ID is ignored, because the
+command is not applied to particles. Use a filename like
+'mydumpfile.vtk' if the mesh is stationary. <BR>This dump is
+especially useful if one or more fixes of type <A HREF="../fix_move_mesh_gran.html">move/mesh/gran</A>
 are registered. If the position of the mesh is changed over time and
 you want to dump one file for each dump timestep for post-processing
 together with the particle data , you should use a filename like

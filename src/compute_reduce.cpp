@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -109,8 +109,8 @@ ComputeReduce::ComputeReduce(LAMMPS *lmp, int narg, char **arg) :
       which[nvalues] = F;
       argindex[nvalues++] = 2;
 
-    } else if (strncmp(arg[iarg],"c_",2) == 0 || 
-	       strncmp(arg[iarg],"f_",2) == 0 || 
+    } else if (strncmp(arg[iarg],"c_",2) == 0 ||
+	       strncmp(arg[iarg],"f_",2) == 0 ||
 	       strncmp(arg[iarg],"v_",2) == 0) {
       if (arg[iarg][0] == 'c') which[nvalues] = COMPUTE;
       else if (arg[iarg][0] == 'f') which[nvalues] = FIX;
@@ -155,7 +155,7 @@ ComputeReduce::ComputeReduce(LAMMPS *lmp, int narg, char **arg) :
 	error->all("Illegal compute reduce command");
       if (col1 == col2)	error->all("Illegal compute reduce command");
       if (replace[col1] >= 0 || replace[col2] >= 0)
-	error->all("Invalid replace values in compute reduce"); 
+	error->all("Invalid replace values in compute reduce");
       replace[col1] = col2;
       iarg += 3;
     } else error->all("Illegal compute reduce command");
@@ -178,41 +178,41 @@ ComputeReduce::ComputeReduce(LAMMPS *lmp, int narg, char **arg) :
       int icompute = modify->find_compute(ids[i]);
       if (icompute < 0)
 	error->all("Compute ID for compute reduce does not exist");
-      if (modify->compute[icompute]->vector_flag || 
+      if (modify->compute[icompute]->vector_flag ||
 	  modify->compute[icompute]->array_flag) {
 	flavor[i] = GLOBAL;
-	if (argindex[i] == 0 && 
+	if (argindex[i] == 0 &&
 	    modify->compute[icompute]->vector_flag == 0)
 	  error->all("Compute reduce compute does not "
 		     "calculate a global vector");
 	if (argindex[i] && modify->compute[icompute]->array_flag == 0)
 	  error->all("Compute reduce compute does not "
 		     "calculate a global array");
-	if (argindex[i] && 
+	if (argindex[i] &&
 	    argindex[i] > modify->compute[icompute]->size_array_cols)
 	  error->all("Compute reduce compute array is accessed out-of-range");
       } else if (modify->compute[icompute]->peratom_flag) {
 	flavor[i] = PERATOM;
-	if (argindex[i] == 0 && 
+	if (argindex[i] == 0 &&
 	    modify->compute[icompute]->size_peratom_cols != 0)
 	  error->all("Compute reduce compute does not "
 		     "calculate a per-atom vector");
 	if (argindex[i] && modify->compute[icompute]->size_peratom_cols == 0)
 	  error->all("Compute reduce compute does not "
 		     "calculate a per-atom array");
-	if (argindex[i] && 
+	if (argindex[i] &&
 	    argindex[i] > modify->compute[icompute]->size_peratom_cols)
 	  error->all("Compute reduce compute array is accessed out-of-range");
       } else if (modify->compute[icompute]->local_flag) {
 	flavor[i] = LOCAL;
-	if (argindex[i] == 0 && 
+	if (argindex[i] == 0 &&
 	    modify->compute[icompute]->size_local_cols != 0)
 	  error->all("Compute reduce compute does not "
 		     "calculate a local vector");
 	if (argindex[i] && modify->compute[icompute]->size_local_cols == 0)
 	  error->all("Compute reduce compute does not "
 		     "calculate a local array");
-	if (argindex[i] && 
+	if (argindex[i] &&
 	    argindex[i] > modify->compute[icompute]->size_local_cols)
 	  error->all("Compute reduce compute array is accessed out-of-range");
       }
@@ -221,41 +221,41 @@ ComputeReduce::ComputeReduce(LAMMPS *lmp, int narg, char **arg) :
       int ifix = modify->find_fix(ids[i]);
       if (ifix < 0)
 	error->all("Fix ID for compute reduce does not exist");
-      if (modify->fix[ifix]->vector_flag || 
+      if (modify->fix[ifix]->vector_flag ||
 	  modify->fix[ifix]->array_flag) {
 	flavor[i] = GLOBAL;
-	if (argindex[i] == 0 && 
+	if (argindex[i] == 0 &&
 	    modify->fix[ifix]->vector_flag == 0)
 	  error->all("Compute reduce fix does not "
 		     "calculate a global vector");
 	if (argindex[i] && modify->fix[ifix]->array_flag == 0)
 	  error->all("Compute reduce fix does not "
 		     "calculate a global array");
-	if (argindex[i] && 
+	if (argindex[i] &&
 	    argindex[i] > modify->fix[ifix]->size_array_cols)
 	  error->all("Compute reduce fix array is accessed out-of-range");
       } else if (modify->fix[ifix]->peratom_flag) {
 	flavor[i] = PERATOM;
-	if (argindex[i] == 0 && 
+	if (argindex[i] == 0 &&
 	    modify->fix[ifix]->size_peratom_cols != 0)
 	  error->all("Compute reduce fix does not "
 		     "calculate a per-atom vector");
 	if (argindex[i] && modify->fix[ifix]->size_peratom_cols == 0)
 	  error->all("Compute reduce fix does not "
 		     "calculate a per-atom array");
-	if (argindex[i] && 
+	if (argindex[i] &&
 	    argindex[i] > modify->fix[ifix]->size_peratom_cols)
 	  error->all("Compute reduce fix array is accessed out-of-range");
       } else if (modify->fix[ifix]->local_flag) {
 	flavor[i] = LOCAL;
-	if (argindex[i] == 0 && 
+	if (argindex[i] == 0 &&
 	    modify->fix[ifix]->size_local_cols != 0)
 	  error->all("Compute reduce fix does not "
 		     "calculate a local vector");
 	if (argindex[i] && modify->fix[ifix]->size_local_cols == 0)
 	  error->all("Compute reduce fix does not "
 		     "calculate a local array");
-	if (argindex[i] && 
+	if (argindex[i] &&
 	    argindex[i] > modify->fix[ifix]->size_local_cols)
 	  error->all("Compute reduce fix array is accessed out-of-range");
       }
@@ -324,16 +324,16 @@ void ComputeReduce::init()
       if (icompute < 0)
 	error->all("Compute ID for compute reduce does not exist");
       value2index[m] = icompute;
-      
+
     } else if (which[m] == FIX) {
       int ifix = modify->find_fix(ids[m]);
-      if (ifix < 0) 
+      if (ifix < 0)
 	error->all("Fix ID for compute reduce does not exist");
       value2index[m] = ifix;
 
     } else if (which[m] == VARIABLE) {
       int ivariable = input->variable->find(ids[m]);
-      if (ivariable < 0) 
+      if (ivariable < 0)
 	error->all("Variable name for compute reduce does not exist");
       value2index[m] = ivariable;
 
@@ -371,7 +371,6 @@ double ComputeReduce::compute_scalar()
       MPI_Allreduce(&one,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
     scalar /= count(0);
   }
-
   return scalar;
 }
 
@@ -514,12 +513,12 @@ double ComputeReduce::compute_one(int m, int flag)
       for (i = 0; i < nlocal; i++)
 	if (mask[i] & groupbit) combine(one,f[i][j],i);
     } else one = f[flag][j];
-    
+
   // invoke compute if not previously invoked
 
   } else if (which[m] == COMPUTE) {
     Compute *compute = modify->compute[n];
-    
+
     if (flavor[m] == GLOBAL) {
       if (j == 0) {
 	if (!(compute->invoked_flag & INVOKED_VECTOR)) {
@@ -528,7 +527,7 @@ double ComputeReduce::compute_one(int m, int flag)
 	}
 	double *compute_vector = compute->vector;
 	int n = compute->size_vector;
-	if (flag < 0) 
+	if (flag < 0)
 	  for (i = 0; i < n; i++)
 	    combine(one,compute_vector[i],i);
 	else one = compute_vector[flag];
@@ -652,14 +651,14 @@ double ComputeReduce::compute_one(int m, int flag)
 	else one = fix_array[flag][jm1];
       }
     }
-    
+
   // evaluate atom-style variable
 
   } else if (which[m] == VARIABLE) {
     if (nlocal > maxatom) {
       maxatom = atom->nmax;
       memory->sfree(varatom);
-      varatom =	(double *) 
+      varatom =	(double *)
 	memory->smalloc(maxatom*sizeof(double),"reduce:varatom");
     }
 

@@ -1,0 +1,19 @@
+# ======
+#leftwall.stl:
+solid Mesh
+facet normal -1.000000 0.000000 0.000000
+outer loop
+vertex 0.050000 -0.050000 0.000
+vertex 0.050000  -0.050000 0.1000
+vertex  0.050000  0.050000 0.000
+endloop
+endfacet
+facet normal -1.000000 0.000000 0.000000
+outer loop
+vertex 0.050000 0.050000 0.10000
+vertex 0.050000  -0.050000 0.10000
+vertex  0.050000  0.050000 0.000
+endloop
+endfacet
+endsolid Mesh
+#=====

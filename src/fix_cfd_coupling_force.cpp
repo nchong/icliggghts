@@ -41,21 +41,26 @@ FixCfdCouplingForce::FixCfdCouplingForce(LAMMPS *lmp, int narg, char **arg) :  F
     dragforce = NULL;
 }
 
+/* ---------------------------------------------------------------------- */
+
 FixCfdCouplingForce::~FixCfdCouplingForce()
 {
-    if(dragforce) modify->delete_fix("dragforce");
 
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixCfdCouplingForce::pre_delete()
+{
+    if(dragforce) modify->delete_fix("dragforce");
 }
 
 /* ---------------------------------------------------------------------- */
 
 int FixCfdCouplingForce::setmask()
 {
-  int mask = 0;
-  mask |= END_OF_STEP;
+  int mask = FixCfdCoupling::setmask();
   mask |= POST_FORCE;
-  mask |= POST_FORCE_RESPA;
-  mask |= MIN_POST_FORCE;
   return mask;
 }
 
@@ -63,13 +68,24 @@ int FixCfdCouplingForce::setmask()
 
 void FixCfdCouplingForce::init_submodel()
 {
-  special_settings();
+  
+  //values to be transfered to OF
+  //TAG add_push_property("id","scalar");
+  add_push_property("x","vector");
+  add_push_property("v","vector");
+  add_push_property("radius","scalar");
+
+  //should make error check on push properties here
+  
+  //values to come from OF
+  add_pull_property("dragforce","vector");
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixCfdCouplingForce::special_settings()
 {
+  
   //register dragforce
   if(!dragforce)
   {
@@ -87,16 +103,6 @@ void FixCfdCouplingForce::special_settings()
         fixarg[10]="0.";
         dragforce = modify->add_fix_property_peratom(11,fixarg);
   }
-
-  //values to be transfered to OF
-  add_push_property("x","vector");
-  add_push_property("v","vector");
-  add_push_property("radius","scalar");
-
-  //should make error check on push properties here
-  
-  //values to come from OF
-  add_pull_property("dragforce","vector");
 }
 
 /* ---------------------------------------------------------------------- */

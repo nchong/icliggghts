@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -66,7 +66,7 @@ void ReadRestart::command(int narg, char **arg)
 {
   if (narg != 1) error->all("Illegal read_restart command");
 
-  if (domain->box_exist) 
+  if (domain->box_exist)
     error->all("Cannot read_restart after simulation box is defined");
 
   MPI_Comm_rank(world,&me);
@@ -205,12 +205,16 @@ void ReadRestart::command(int narg, char **arg)
 	  coord[1] >= sublo[1] && coord[1] < subhi[1] &&
 	  coord[2] >= sublo[2] && coord[2] < subhi[2])
 	m += avec->unpack_restart(&buf[m]);
-      else m += static_cast<int> (buf[m]);
+      else
+      {
+          
+          m += static_cast<int> (buf[m]);
+      }
     }
   }
 
   // close restart file and clean-up memory
-  
+
   if (me == 0) fclose(fp);
   delete [] buf;
   delete [] file;
@@ -323,7 +327,7 @@ void ReadRestart::file_search(char *infile, char *outfile)
   if (me == 0) {
     struct dirent *ep;
     DIR *dp = opendir(dirname);
-    if (dp == NULL) 
+    if (dp == NULL)
       error->one("Cannot open dir to search for restart file");
     while (ep = readdir(dp)) {
       if (strstr(ep->d_name,begin) != ep->d_name) continue;
@@ -358,7 +362,7 @@ void ReadRestart::file_search(char *infile, char *outfile)
 }
 
 /* ----------------------------------------------------------------------
-   read header of restart file 
+   read header of restart file
 ------------------------------------------------------------------------- */
 
 void ReadRestart::header()
@@ -417,8 +421,8 @@ void ReadRestart::header()
       py = read_int();
     } else if (flag == PROCGRID_2) {
       pz = read_int();
-      if (comm->user_procgrid[0] != 0 && 
-	  (px != comm->user_procgrid[0] || py != comm->user_procgrid[1] || 
+      if (comm->user_procgrid[0] != 0 &&
+	  (px != comm->user_procgrid[0] || py != comm->user_procgrid[1] ||
 	   pz != comm->user_procgrid[2]) && me == 0)
 	error->warning("Restart file used different 3d processor grid");
 
@@ -466,8 +470,8 @@ void ReadRestart::header()
     } else if (flag == BOUNDARY_21) {
       boundary[2][1] = read_int();
 
-      if (domain->boundary[0][0] || domain->boundary[0][1] || 
-	  domain->boundary[1][0] || domain->boundary[1][1] || 
+      if (domain->boundary[0][0] || domain->boundary[0][1] ||
+	  domain->boundary[1][0] || domain->boundary[1][1] ||
 	  domain->boundary[2][0] || domain->boundary[2][1]) {
 	if (boundary[0][0] != domain->boundary[0][0] ||
 	    boundary[0][1] != domain->boundary[0][1] ||
@@ -475,7 +479,7 @@ void ReadRestart::header()
 	    boundary[1][1] != domain->boundary[1][1] ||
 	    boundary[2][0] != domain->boundary[2][0] ||
 	    boundary[2][1] != domain->boundary[2][1]) {
-	  if (me == 0) 
+	  if (me == 0)
 	    error->warning("Restart file used different boundary settings, "
 			   "using restart file values");
 	}
@@ -495,7 +499,7 @@ void ReadRestart::header()
       domain->periodicity[0] = domain->xperiodic = xperiodic;
       domain->periodicity[1] = domain->yperiodic = yperiodic;
       domain->periodicity[2] = domain->zperiodic = zperiodic;
-  
+
       domain->nonperiodic = 0;
       if (xperiodic == 0 || yperiodic == 0 || zperiodic == 0) {
 	domain->nonperiodic = 1;
@@ -658,7 +662,7 @@ void ReadRestart::force_fields()
       style = new char[n];
       if (me == 0) fread(style,sizeof(char),n,fp);
       MPI_Bcast(style,n,MPI_CHAR,0,world);
-      
+
       force->create_bond(style);
       delete [] style;
       force->bond->read_restart(fp);

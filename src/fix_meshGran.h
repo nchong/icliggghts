@@ -41,9 +41,7 @@ class FixMeshGran : public Fix {
   friend class Input;
   friend class DumpSTL;
   friend class DumpMesh;
-  friend class FixWallGranHookeHistory;
-  friend class FixWallGranHooke;
-  friend class FixWallGranHertzHistory;
+  friend class FixWallGran;
 
  public:
   FixMeshGran(class LAMMPS *, int, char **);

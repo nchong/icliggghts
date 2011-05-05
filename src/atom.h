@@ -122,6 +122,7 @@ class Atom : protected Pointers {
   void modify_params(int, char **);
   void tag_extend();
   int tag_consecutive();
+  int tag_max(); 
 
   int parse_data(const char *);
   int count_words(const char *);

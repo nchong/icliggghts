@@ -191,6 +191,8 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
   recvcounts = new int[nprocs];
   displs = new int[nprocs];
 
+  lastexec = -1;
+
   if(strcmp(this->style,"pour")==0)  
   {
       calc_nfreq();
@@ -374,8 +376,10 @@ void FixPour::pre_exchange()
   int i;
 
   // just return if should not be called on this timestep
+  
+  if (next_reneighbor != update->ntimestep || lastexec == update->ntimestep) return;
 
-  if (next_reneighbor != update->ntimestep) return;
+  lastexec = update->ntimestep;
 
   // nnew = # to insert this timestep
 

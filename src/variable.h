@@ -32,6 +32,7 @@ class Variable : protected Pointers {
   double compute_equal(int);
   void compute_atom(int, int, double *, int, int);
   int int_between_brackets(char *&);
+  double evaluate_boolean(char *);
 
  private:
   int me;
@@ -40,33 +41,49 @@ class Variable : protected Pointers {
   char **names;            // name of each variable
   int *style;              // style of each variable
   int *num;                // # of values for each variable
-  int *index;              // next available value for each variable
+  int *which;              // next available value for each variable
+  int *pad;                // 1 = pad loop/uloop variables with 0s, 0 = no pad
   char ***data;            // str value of each variable's values
-  int precedence[7];       // precedence level of math operators
+  double PI;
+
+  class RanMars *randomequal;   // random number generator for equal-style vars
+  class RanMars *randomatom;    // random number generator for atom-style vars
+
+  int precedence[16];      // precedence level of math operators
+                           // set length to include OR in enum
 
   struct Tree {            // parse tree for atom-style variables
     double value;
     double *array;
     int *iarray;
-    int nstride;
     int type;
-    Tree *left,*right;
+    int nstride;
+    int ivalue1,ivalue2;
+    Tree *left,*middle,*right;
   };
 
   void remove(int);
   void extend();
   void copy(int, char **, char **);
   double evaluate(char *, Tree **);
+  double collapse_tree(Tree *);
   double eval_tree(Tree *, int);
   void free_tree(Tree *);
   int find_matching_paren(char *, int, char *&);
   int math_function(char *, char *, Tree **, Tree **, int &, double *, int &);
   int group_function(char *, char *, Tree **, Tree **, int &, double *, int &);
   int region_function(char *);
+  int special_function(char *, char *, Tree **, Tree **, 
+		       int &, double *, int &);
   void peratom2global(int, char *, double *, int, int,
 		      Tree **, Tree **, int &, double *, int &);
   int is_atom_vector(char *);
   void atom_vector(char *, Tree **, Tree **, int &);
+  int is_constant(char *);
+  double constant(char *);
+  double numeric(char *);
+  int inumeric(char *);
+  void print_tree(Tree *, int);
 };
 
 }

@@ -46,54 +46,62 @@ using namespace LAMMPS_NS;
 FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
+  
+  if(comm->me == 0 && strncmp(arg[2],"couple/cfd",10)) fprintf(screen,"INFO: Some error/warning messages may appear as fix couple/cfd messages\n");
+
+  int master_flag = 1;
   for(int ii=0;ii<modify->nfix;ii++)
   {
-      if(strcmp(modify->fix[ii]->style,style) == 0) error->all("There must not be more than one fix of type couple/cfd");
+      if(strncmp(modify->fix[ii]->style,"couple/cfd",10) == 0) master_flag = 0;
   }
 
-  if (narg < 5) error->all("Illegal fix couple/cfd/file command");
-
   iarg = 3;
-  couple_nevery = atoi(arg[iarg++]);
-  if(couple_nevery<=0)error->all("Fix couple/cfd/file: nevery must be >0");
-
-  nevery = 1;
-
-  if (0) return;
-  #define CFD_DATACOUPLING_CLASS
-  #define CfdDataCouplingStyle(key,Class) \
-  else if (strcmp(arg[iarg],#key) == 0) dc = new Class(lmp,iarg+1,narg,arg,this);
-  #include "style_cfd_datacoupling.h"
-  #undef CFD_DATACOUPLING_CLASS
-  else error->all("Unknown cfd data coupling style");
-
-  iarg = dc->get_iarg();
 
   rm = NULL;
 
-  if(iarg < narg)
+  dc = NULL;
+
+  if(master_flag)
   {
-      if (0) return;
-      #define CFD_REGIONMODEL_CLASS
-      #define CfdRegionStyle(key,Class) \
-      else if (strcmp(arg[iarg],#key) == 0) rm = new Class(lmp,iarg+1,narg,arg,this);
-      #include "style_cfd_regionmodel.h"
-      #undef CFD_REGIONMODEL_CLASS
       
+      nevery = 1;
+
+      if (narg < 5) error->all("Illegal fix couple/cfd command");
+      if(strcmp(arg[iarg],"every") && strcmp(arg[iarg],"couple_every")) error->all("Illegal fix couple/cfd command, expecting keyword 'every'");
+      iarg++;
+
+      couple_nevery = atoi(arg[iarg++]);
+      if(couple_nevery < 0)error->all("Fix couple/cfd/file: every value must be >=0");
+
+      if (0) return;
+      #define CFD_DATACOUPLING_CLASS
+      #define CfdDataCouplingStyle(key,Class) \
+      else if (strcmp(arg[iarg],#key) == 0) dc = new Class(lmp,iarg+1,narg,arg,this);
+      #include "style_cfd_datacoupling.h"
+      #undef CFD_DATACOUPLING_CLASS
+      else error->all("Illegal fix couple/cfd command: Unknown data coupling style - expecting 'file' or 'MPI'");
+
+      iarg = dc->get_iarg();
+
+      bool hasargs = true;
+      while (iarg < narg && hasargs)
+      {
+          hasargs = false;
+          if(strcmp(arg[iarg],"regionmodel") == 0)
+          {
+              hasargs = true;
+              iarg++;
+              if (0) return;
+              #define CFD_REGIONMODEL_CLASS
+              #define CfdRegionStyle(key,Class) \
+              else if (strcmp(arg[iarg],#key) == 0) rm = new Class(lmp,iarg+1,narg,arg,this);
+              #include "style_cfd_regionmodel.h"
+              #undef CFD_REGIONMODEL_CLASS
+              else error->all("Unknown cfd regionmodel style");
+              iarg = rm->get_iarg();
+          }
+      }
   }
-
-  if(rm) iarg = rm->get_iarg();
-
-  extvector = 1; //extensive
-  create_attribute = 1;
-
-  peratom_flag = 1;
-  peratom_freq=1;
-
-  array_flag = 1;
-  array_atom = NULL;
-
-  atom->add_callback(0);
 
   npull = 0;
   npush = 0;
@@ -103,23 +111,34 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
   pulltypes = NULL;
   pushnames = NULL;
   pushtypes = NULL;
+  pushinvoked = NULL;
+  pullinvoked = NULL;
   grow_();
 
   ts_create = update->ntimestep;
 }
+
+/* ---------------------------------------------------------------------- */
 
 void FixCfdCoupling::grow_()
 {
       nvalues_max+=10;
       pullnames = memory->grow_2d_char_array(pullnames,nvalues_max,MAXLENGTH,"FixCfdCoupling:valnames");
       pulltypes = memory->grow_2d_char_array(pulltypes,nvalues_max,MAXLENGTH,"FixCfdCoupling:valtypes");
+      pushinvoked = (int *) memory->srealloc(pushinvoked,MAXLENGTH*sizeof(int),"FixCfdCoupling:pushinvoked");
+
       pushnames = memory->grow_2d_char_array(pushnames,nvalues_max,MAXLENGTH,"FixCfdCoupling:pushnames");
       pushtypes = memory->grow_2d_char_array(pushtypes,nvalues_max,MAXLENGTH,"FixCfdCoupling:pushtypes");
+      pullinvoked = (int *) memory->srealloc(pullinvoked,MAXLENGTH*sizeof(int),"FixCfdCoupling:pullinvoked");
 }
+
+/* ---------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------- */
 
 FixCfdCoupling::~FixCfdCoupling()
 {
-	atom->delete_callback(id,0);
+	
 	memory->destroy_2d_double_array(array_atom);
 	memory->destroy_2d_char_array(pullnames);
 	memory->destroy_2d_char_array(pulltypes);
@@ -128,12 +147,17 @@ FixCfdCoupling::~FixCfdCoupling()
 }
 
 /* ---------------------------------------------------------------------- */
+void FixCfdCoupling::post_create()
+{
+    if(dc) dc->post_create();
+    special_settings();
+}
+/* ---------------------------------------------------------------------- */
 
 int FixCfdCoupling::setmask()
 {
   int mask = 0;
-  mask |= END_OF_STEP;
-  mask |= THERMO_ENERGY;
+  if(nevery) mask |= END_OF_STEP;
   mask |= POST_FORCE_RESPA;
   mask |= MIN_POST_FORCE;
   return mask;
@@ -148,7 +172,12 @@ void FixCfdCoupling::init()
   for(int ifix = 0; ifix < modify->nfix; ifix++)
   {
         if(strncmp("couple/cfd",modify->fix[ifix]->style,10) == 0)
-           master = static_cast<FixCfdCoupling*>(modify->fix[ifix]);
+        {
+            if(!master)
+            {
+                master = static_cast<FixCfdCoupling*>(modify->fix[ifix]);
+            }
+        }
   }
   if(!master) master = this;
 
@@ -158,6 +187,13 @@ void FixCfdCoupling::init()
   if(rm) rm->init();
 
   init_submodel();
+
+  if(master == this)
+  {
+      for(int i = 0; i < nvalues_max; i++)
+      pushinvoked[i] = pullinvoked[i] = 0;
+  }
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -178,12 +214,63 @@ void FixCfdCoupling::setup(int vflag)
 /* ---------------------------------------------------------------------- */
 void FixCfdCoupling::push(char *name,char *type,void *&ptr)
 {
-    return dc->push(name,type,ptr);
+    
+    int found = 0;
+    for(int i = 0; i < npush; i++)
+    {
+        if(strcmp(name,pushnames[i]) == 0 && strcmp(type,pushtypes[i]) == 0)
+        {
+            found = 1;
+            pushinvoked[i] = 1;
+        }
+    }
+    if(!found)
+    {
+        if(comm->me == 0 && screen) fprintf(screen,"LIGGGHTS could not find property %s requested by calling program. Check your model settings in LIGGGHTS.\n",name);
+        lmp->error->all("This error is fatal");
+    }
+
+    return master->dc->push(name,type,ptr);
 }
 
 void FixCfdCoupling::pull(char *name,char *type,void *&ptr)
 {
-    return dc->pull(name,type,ptr);
+    
+    int found = 0;
+    for(int i = 0; i < npull; i++)
+    {
+        if(strcmp(name,pullnames[i]) == 0 && strcmp(type,pulltypes[i]) == 0)
+        {
+            found = 1;
+            pullinvoked[i] = 1;
+        }
+    }
+    if(!found)
+    {
+        if(comm->me == 0 && screen) fprintf(screen,"LIGGGHTS could not find property %s requested by calling program. Check your model settings in LIGGGHTS.\n",name);
+        lmp->error->all("This error is fatal");
+    }
+
+    return master->dc->pull(name,type,ptr);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixCfdCoupling::check_datatransfer()
+{
+    for(int i = 0; i < npull; i++)
+       if(!pullinvoked[i])
+       {
+            if(comm->me == 0 && screen) fprintf(screen,"Communication of property %s was not invoked by calling program, but needed by a LIGGGHTS model. Check your model settings in OF.\n",pullnames[i]);
+            lmp->error->all("This error is fatal");
+       }
+    for(int i = 0; i < npush; i++)
+       if(!pushinvoked[i])
+       {
+            if(comm->me == 0 && screen) fprintf(screen,"Communication of property %s was not invoked by calling program, but needed by a LIGGGHTS model. Check your model settings in OF.\n",pushnames[i]);
+            lmp->error->all("This error is fatal");
+       }
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -301,7 +388,7 @@ void* FixCfdCoupling::find_property(int push,char *name,char *type,int &len1,int
 void FixCfdCoupling::end_of_step()
 {
     
-    if(!dc->liggghts_is_active) return;
+    if(master != this || couple_nevery == 0) return;
 
     int ts = update->ntimestep;
 
@@ -310,29 +397,30 @@ void FixCfdCoupling::end_of_step()
 
     if(ts % couple_nevery || ts_create == ts) return;
 
+    if(!dc->liggghts_is_active) return;
+
     if(screen && comm->me == 0) fprintf(screen,"CFD Coupling established at step %d\n",ts);
 
     void *dummy = NULL;
 
     if(ts % couple_nevery == 0)
     {
-      //call region model
+      
       if(rm) rm->rm_update();
 
-      //write to file
       for(int i = 0; i < npush; i++)
       {
            
            dc->push(pushnames[i],pushtypes[i],dummy);
       }
 
-      //read from files
       for(int i = 0; i < npull; i++)
       {
          
          dc->pull(pullnames[i],pulltypes[i],dummy);
       }
     }
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -354,4 +442,15 @@ void FixCfdCoupling::post_force_respa(int vflag, int ilevel, int iloop)
 void FixCfdCoupling::min_post_force(int vflag)
 {
   post_force(vflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixCfdCoupling::allocate_external(int    **&data, int len2,int len1,int    initvalue)
+{
+      master->dc->allocate_external(data,len2,len1,initvalue);
+}
+void FixCfdCoupling::allocate_external(double **&data, int len2,int len1,double initvalue)
+{
+      master->dc->allocate_external(data,len2,len1,initvalue);
 }

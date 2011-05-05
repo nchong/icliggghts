@@ -33,7 +33,7 @@ namespace LAMMPS_NS {
 
 class FixTriNeighlist : public Fix {
 
-  friend class FixWallGranHookeHistory;
+  friend class FixWallGran;
 
  public:
   FixTriNeighlist(class LAMMPS *, int, char **);
@@ -50,18 +50,22 @@ class FixTriNeighlist : public Fix {
   void set_arrays(int);
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
+  int n_neighs();
+  class FixWallGran* wall_fix(){return caller;}
 
- protected:
+ private:
   
+  int xper, yper, zper;
+
   int *nTriList;
 
   int ***tri_neighlist;
   int maxwalllist;
   int *delflag;
 
- private:
+  void check_tri(class FixMeshGran *fmg,int iTri,int iList,int &dangerous_build);
   int addTriToNeighList(int,int,int);
-  int check_dangerous(double,int);
+  int check_dangerous(double,int,double*,double);
   void flag_old_list();
   void clear_old_entries();
 
@@ -75,13 +79,17 @@ class FixTriNeighlist : public Fix {
   void unset_nontouching();
 
   char *caller_id;
-  class FixWallGranHookeHistory* caller;
+  class FixWallGran* caller;
   int nFixMeshGran;
   class FixMeshGran** FixMeshGranList;
   int buildNeighList;  
 
   //neighbor list params
-  double *bsubboxlo, *bsubboxhi;
+  double bsubboxlo[3], bsubboxhi[3];
+  double *boxhi, *boxlo;
+  int mbinx,mbiny,mbinz, *bins, *binhead;
+  double treshold,skin,skin_safety,cutneighmax;
+
 };
 
 }

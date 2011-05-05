@@ -35,12 +35,17 @@ class CfdDatacouplingFile : public CfdDatacoupling {
  public:
   CfdDatacouplingFile(class LAMMPS *, int, int, char **,class FixCfdCoupling* fc);
   ~CfdDatacouplingFile();
+  friend class FixTempFromFile;
 
   void pull(char *,char *,void *&);
   void push(char *,char *,void *&);
+  virtual void post_create();
 
   private:
    char* filepath;
+   
+   int append;
+
    bool firstexec;
    int t0;
 

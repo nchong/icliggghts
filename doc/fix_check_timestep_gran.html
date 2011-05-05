@@ -3,15 +3,16 @@
 <HEAD>
 	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Linux)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGEDBY" CONTENT="christophkloss ">
-	<META NAME="CHANGED" CONTENT="20100629;12270500">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
+	<META NAME="CHANGED" CONTENT="20110321;12123000">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
 		H3.cjk { font-family: "HG Mincho Light J" }
 		H3.ctl { font-family: "Arial Unicode MS" }
+		PRE.cjk { font-family: "DejaVu Sans", monospace }
 	-->
 	</STYLE>
 </HEAD>
@@ -26,7 +27,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix ID group-ID check/timestep/gran nevery fraction_r fraction_h </PRE>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ID group-ID check/timestep/gran nevery fraction_r fraction_h </PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">ID, group-ID are documented in <A HREF="fix.html">fix</A>
 	command 
@@ -43,7 +44,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </UL>
 <P><B>Examples:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix ts_check all check/timestep/gran 1000 0.1 0.1</PRE><P>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ts_check all check/timestep/gran 1000 0.1 0.1</PRE><P>
 <B>Description:</B> 
 </P>
 <P>Periodically calculate estimations of the Rayleigh- and Hertz
@@ -62,12 +63,17 @@ fraction_r or <FONT FACE="Standard Symbols L">d</FONT>t_h*fraction_h.
 density, Y is the Young's modulus and is <FONT FACE="Standard Symbols L">n</FONT>
 Poisson's ratio. The latter is expressed by</P>
 <P><FONT FACE="Standard Symbols L">d</FONT>t_h
-=2.87*(m_eff²/(r_eff*Y_eff²*v_max)^0.2.</P>
+=2.87*(m_eff²/(r_eff*G_eff²*v_max)^0.2.</P>
 <P>The effective mass m_eff, the effective radius r_eff and the
-effective Young's modulus Y_eff are the same as defined in <A HREF="pair_gran.html">pair
+effective shear modulus G_eff are as defined in <A HREF="pair_gran.html">pair
 gran</A>. v_max is the maximum relative velocity, taking mesh
 movement into account. Please note that the Hertz criterion will also
 be used if you use a different granular pair style (e.g. Hooke).</P>
+<P>Additionally, this command checks the ratio of skin to the
+distance that particles can travel relative to each other in one
+time-step. This value should be &gt;1, otherwise some interactions
+may be missed or overlap energy may be generated artifically. This
+command will warn you if this is the case.</P>
 <P>These formulas are evaluated every 'nevery' time-steps. Rayleigh
 time-step size <FONT FACE="Standard Symbols L">d</FONT>t_r is
 calculated for each particle in the simulation, and the minimum value
@@ -77,11 +83,13 @@ using v_max as the assumed collision velocity.
 </P>
 <P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
 </P>
-<P>This fix computes a 2-vector of forces, which can be accessed by
+<P>This fix computes a 3-vector of forces, which can be accessed by
 various <A HREF="Section_howto.html#4_15">output commands</A>. The
 vector consists of the time-step size expressed as fraction of the
-Rayleigh and Hertz time-step sizes, respectively. No parameter of
-this fix can be used with the <I>start/stop</I> keywords of the <A HREF="run.html">run</A>
+Rayleigh and Hertz time-step sizes and the ratio of skin to the
+distance particles can travel relative to each other in one
+time-step, respectively. No parameter of this fix can be used with
+the <I>start/stop</I> keywords of the <A HREF="run.html">run</A>
 command. 
 </P>
 <P><B>Restrictions:</B> none 

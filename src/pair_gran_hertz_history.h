@@ -36,14 +36,16 @@ PairStyle(gran/hertz/history,PairGranHertzHistory)
 namespace LAMMPS_NS {
 
 class PairGranHertzHistory : public PairGranHookeHistory {
+
+ friend class FixWallGranHertzHistory;
+
  public:
-  friend class FixWallGranHertzHistory;
+
   PairGranHertzHistory(class LAMMPS *);
-  void settings(int, char **);
-  void init_substyle(); 
-  //compute removed 
+  virtual void init_substyle(); 
+  
  protected:
-   virtual void deriveContactModelParams(int &, int &,double &, double &, double &,double &, double &, double &, double &);
+   virtual void deriveContactModelParams(int &, int &,double &, double &, double &,double &, double &, double &, double &,double &);
 };
 
 }

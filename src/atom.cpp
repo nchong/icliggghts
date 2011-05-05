@@ -672,6 +672,22 @@ int Atom::tag_consecutive()
 }
 
 /* ----------------------------------------------------------------------
+   get max tag
+------------------------------------------------------------------------- */
+
+int Atom::tag_max()
+{
+  int idmax = 0;
+
+  for (int i = 0; i < nlocal; i++) {
+    idmax = MAX(idmax,tag[i]);
+  }
+  int idmaxall;
+  MPI_Allreduce(&idmax,&idmaxall,1,MPI_INT,MPI_MAX,world);
+  return idmaxall;
+}
+
+/* ----------------------------------------------------------------------
    count and return words in a single line
    make copy of line before using strtok so as not to change line
    trim anything from '#' onward

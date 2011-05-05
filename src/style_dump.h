@@ -3,6 +3,7 @@
 #include "dump_custom.h"
 #include "dump_dcd.h"
 #include "dump_local.h"
+#include "dump_localbox.h"
 #include "dump_mesh.h"
 #include "dump_stl.h"
 #include "dump_xyz.h"

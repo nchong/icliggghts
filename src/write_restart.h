@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -26,6 +26,7 @@ CommandStyle(write_restart,WriteRestart)
 namespace LAMMPS_NS {
 
 class WriteRestart : protected Pointers {
+ friend class Output;
  public:
   WriteRestart(class LAMMPS *);
   void command(int, char **);
@@ -35,6 +36,8 @@ class WriteRestart : protected Pointers {
   int me,nprocs;
   FILE *fp;
   double natoms;         // natoms (sum of nlocal) to write into file
+
+  class Region *region;
 
   void header();
   void type_arrays();

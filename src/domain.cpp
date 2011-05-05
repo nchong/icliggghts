@@ -42,6 +42,7 @@ using namespace LAMMPS_NS;
 #define DELTA 1
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define FABS(a) ((a) > 0 ? (a) : (-a))
 
 enum{NO_REMAP,X_REMAP,V_REMAP};                   // same as fix_deform.cpp
 
@@ -65,7 +66,7 @@ Domain::Domain(LAMMPS *lmp) : Pointers(lmp)
   boundary[2][0] = boundary[2][1] = 0;
 
   triclinic = 0;
-  
+
   boxlo[0] = boxlo[1] = boxlo[2] = -0.5;
   boxhi[0] = boxhi[1] = boxhi[2] = 0.5;
   xy = xz = yz = 0.0;
@@ -84,6 +85,7 @@ Domain::Domain(LAMMPS *lmp) : Pointers(lmp)
   lattice = NULL;
   nregion = maxregion = 0;
   regions = NULL;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -180,6 +182,7 @@ void Domain::set_initial_box()
 
 void Domain::set_global_box()
 {
+  
   prd[0] = xprd = boxhi[0] - boxlo[0];
   prd[1] = yprd = boxhi[1] - boxlo[1];
   prd[2] = zprd = boxhi[2] - boxlo[2];
@@ -341,7 +344,8 @@ void Domain::reset_box()
   }
 
   set_global_box();
-  set_local_box();
+  
+           set_local_box();
 
   // if shrink-wrapped, convert to lamda coords for new box
   // must re-invoke pbc() b/c x2lamda result can be outside 0,1 due to roundoff

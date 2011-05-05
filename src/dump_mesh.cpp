@@ -81,6 +81,12 @@ DumpMesh::DumpMesh(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
           iarg++;
           hasargs = true;
       }
+      else if(strcmp(arg[iarg],"vel")==0)
+      {
+          dump_what |= DUMP_VEL;
+          iarg++;
+          hasargs = true;
+      }
   }
 
   if(dump_what == 0) error->all("Dump mesh: No dump quantity selected");
@@ -278,6 +284,26 @@ void DumpMesh::write_item(int n, double *mybuf)
       for (int i = 0; i < STLList_len; i++) {
           for (int j=0;j<STLList[i]->nTri;j++){
               fprintf(fp,"%f\n",STLList[i]->wear[j]);
+              //fprintf(fp,"%f\n",(STLList[i]->Area[j]));
+          }
+      }
+  }
+
+  if(dump_what & DUMP_VEL)
+  {
+      //write vel data
+      fprintf(fp,"VECTORS v float 3\nLOOKUP_TABLE default\n");
+      for (int i = 0; i < STLList_len; i++) {
+          int vel_flag = STLList[i]->mesh_moving();
+          for (int j=0;j<STLList[i]->nTri;j++){
+              if(vel_flag)
+              {
+                  double vx =  (STLList[i]->v_node[j][0][0] + STLList[i]->v_node[j][1][0] + STLList[i]->v_node[j][2][0]) / 3.;
+                  double vy =  (STLList[i]->v_node[j][0][1] + STLList[i]->v_node[j][1][1] + STLList[i]->v_node[j][2][1]) / 3.;
+                  double vz =  (STLList[i]->v_node[j][0][2] + STLList[i]->v_node[j][1][2] + STLList[i]->v_node[j][2][2]) / 3.;
+                  fprintf(fp,"%f %f %f\n",vx,vy,vz);
+              }
+              else         fprintf(fp,"0.0 0.0 0.0\n");
               //fprintf(fp,"%f\n",(STLList[i]->Area[j]));
           }
       }

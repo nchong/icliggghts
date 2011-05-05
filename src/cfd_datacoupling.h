@@ -31,14 +31,16 @@ class CfdDatacoupling : protected Pointers {
   CfdDatacoupling(class LAMMPS *lmp, int jarg,int narg, char **arg,class FixCfdCoupling* fc) : Pointers(lmp)
   {
       this->fc = fc;
+      is_parallel = true;
   }
   ~CfdDatacoupling() {}
 
   int get_iarg() {return iarg;}
-  bool liggghts_is_active;
-
   virtual void pull(char *,char *,void *&) {};
   virtual void push(char *,char *,void *&) {};
+
+  bool liggghts_is_active;
+  bool is_parallel;
 
   void* find_pull_property(char *name,char *type,int &len1,int &len2)
   {
@@ -49,6 +51,10 @@ class CfdDatacoupling : protected Pointers {
   {
       return fc->find_push_property(name,type,len1,len2);
   }
+
+  virtual void allocate_external(int    **&data, int len2,int len1,int    initvalue) {}
+  virtual void allocate_external(double **&data, int len2,int len1,double initvalue) {}
+  virtual void post_create() {}
 
  protected:
   int iarg;

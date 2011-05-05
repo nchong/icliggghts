@@ -201,10 +201,13 @@ void CreateAtoms::add_single()
   if (coord[0] >= sublo[0] && coord[0] < subhi[0] &&
       coord[1] >= sublo[1] && coord[1] < subhi[1] &&
       coord[2] >= sublo[2] && coord[2] < subhi[2])
-    atom->avec->create_atom(itype,xone);
-    
-	  for (int j = 0; j < modify->nfix; j++)
-        if (modify->fix[j]->create_attribute) modify->fix[j]->set_arrays(atom->nlocal-1);
+      {
+         atom->avec->create_atom(itype,xone);
+        
+          for (int j = 0; j < modify->nfix; j++)
+            if (modify->fix[j]->create_attribute) modify->fix[j]->set_arrays(atom->nlocal-1);
+      }
+
 }
 
 /* ----------------------------------------------------------------------

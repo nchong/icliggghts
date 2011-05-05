@@ -28,9 +28,7 @@ class FixRigid : public Fix {
  friend class FixMeshGran6DOF;
  friend class FixTemplateMultisphere;
  friend class FixGravity; 
- friend class FixWallGranHookeHistory; 
- friend class FixWallGranHertzHistory; 
- friend class FixWallGranHooke; 
+ friend class FixWallGran; 
  friend class PairGranHookeHistory; 
  friend class PairGranHooke; 
 

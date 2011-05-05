@@ -183,6 +183,7 @@ FixPourLegacy::FixPourLegacy(LAMMPS *lmp, int narg, char **arg) :
 
   force_reneighbor = 1;
   next_reneighbor = update->ntimestep + 1;
+  lastexec = -1;
   nfirst = next_reneighbor;
   ninserted = 0;
 
@@ -287,7 +288,9 @@ void FixPourLegacy::pre_exchange()
 
   // just return if should not be called on this timestep
 
-  if (next_reneighbor != update->ntimestep) return;
+  if (next_reneighbor != update->ntimestep || lastexec == update->ntimestep) return;
+
+  lastexec = update->ntimestep;
 
   // nnew = # to insert this timestep
 

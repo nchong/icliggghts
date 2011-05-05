@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -82,6 +82,7 @@ class Compute : protected Pointers {
   void modify_params(int, char **);
   void reset_extra_dof();
 
+  virtual void post_create() {}
   virtual void init() = 0;
   virtual void init_list(int, class NeighList *) {}
   virtual double compute_scalar() {return 0.0;}

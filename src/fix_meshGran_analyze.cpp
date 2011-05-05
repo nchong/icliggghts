@@ -78,7 +78,6 @@ FixMeshGranAnalyze::FixMeshGranAnalyze(LAMMPS *lmp, int narg, char **arg) :
    }
 
    if(finnie_flag) error->warning("You are using the wear model, which is currently in beta mode!");
-
 }
 
 FixMeshGranAnalyze::~FixMeshGranAnalyze()
@@ -125,6 +124,9 @@ void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPo
 {
     double E,c[3],cmag,vmag,cos_gamma,sin_gamma,sin_2gamma,tan_gamma;
 
+    //do not include if not in fix group
+    if(!(atom->mask[ip] & groupbit)) return;
+
     vectorAdd3D(STLdata->f_tri[iTri],frc,STLdata->f_tri[iTri]);
 
     vectorAdd3D(force_total,frc,force_total);
@@ -161,7 +163,7 @@ void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPo
         }
         E *= 2.*k_finnie[atom_type_wall-1][atom->type[ip]-1] * vmag * vectorMag3D(frc);
         
-        STLdata->wear[iTri] += E;
+        STLdata->wear_step[iTri] += E;
     }
 }
 
@@ -176,6 +178,8 @@ void FixMeshGranAnalyze::final_integrate()
 
 void FixMeshGranAnalyze::calc_total_force()
 {
+    int nTri = STLdata->nTri;
+
     //total force on tri
     double *force_total_all=new double[3];
     double *torque_total_all=new double[3];
@@ -192,9 +196,21 @@ void FixMeshGranAnalyze::calc_total_force()
     delete []force_total_all;
     delete []torque_total_all;
 
+    double *wear = STLdata->wear;
+    double *wear_step = STLdata->wear_step;
+    double *wear_step_all = new double[nTri];
+    MPI_Allreduce(wear_step,wear_step_all,nTri, MPI_DOUBLE, MPI_SUM,world);
+
+    for(int i=0;i<nTri;i++)
+    {
+        wear[i] += wear_step_all[i];
+        wear_step[i] = 0.;
+    }
+    delete []wear_step_all;
+
     //forces on tri
 
-    MPI_Allreduce(&(STLdata->f_tri[0][0]),&(STLdata->fn_fshear[0][0]),3*(STLdata->nTri), MPI_DOUBLE, MPI_SUM,world);
+    MPI_Allreduce(&(STLdata->f_tri[0][0]),&(STLdata->fn_fshear[0][0]),3*nTri, MPI_DOUBLE, MPI_SUM,world);
 
     //switch fn_fshear and f_tri
     double **helper;
@@ -202,7 +218,7 @@ void FixMeshGranAnalyze::calc_total_force()
     STLdata->f_tri=STLdata->fn_fshear;
     STLdata->fn_fshear=helper;
 
-    double *temp=new double[3];
+    double temp[3];
     double p,s;
     for(int i=0;i<nTri;i++)
     {
@@ -213,7 +229,6 @@ void FixMeshGranAnalyze::calc_total_force()
         //shear force
         STLdata->fn_fshear[i][1]=vectorMag3D(temp);
     }
-    delete []temp;
 }
 
 /* ----------------------------------------------------------------------

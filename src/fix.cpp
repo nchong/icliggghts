@@ -58,6 +58,7 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   restart_pbc = 0;
   rad_mass_vary_flag = 0; 
   just_created = 1; 
+  recent_restart = 0; 
 
   scalar_flag = vector_flag = array_flag = 0;
   peratom_flag = local_flag = 0;

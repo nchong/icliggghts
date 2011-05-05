@@ -61,15 +61,22 @@ class FixCfdCoupling : public Fix {
   void add_pull_prop(char *name,char *type);
 
   virtual void special_settings() =0;
+  virtual void post_create();
+  virtual void pre_delete(){}
 
   int coupleThis() {return master->couple_this;}
+  bool is_master() {return master==this;}
+
+  void check_datatransfer();
+  void allocate_external(int    **&data, int len2,int len1,int    initvalue);
+  void allocate_external(double **&data, int len2,int len1,double initvalue);
 
  protected:
   int couple_this;
   class FixCfdCoupling *master;
   int iarg;
 
- private:
+ protected:
 
   void* find_property(int flag,char *name,char *type,int &len1,int &len2);
   void* find_pull_property(char *name,char *type,int &len1,int &len2);
@@ -84,9 +91,13 @@ class FixCfdCoupling : public Fix {
   char **pullnames;
   char **pulltypes;
   
+  int *pullinvoked;
+  
   int npush;
   char **pushnames;
   char **pushtypes;
+  
+  int *pushinvoked;
   
   void grow_();
 

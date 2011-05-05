@@ -24,6 +24,7 @@ See the README file in the top-level LAMMPS directory.
 #include "error.h"
 #include "stdlib.h"
 #include "string.h"
+#include "comm.h"
 
 using namespace LAMMPS_NS;
 
@@ -34,8 +35,8 @@ ComputeTotalMass::ComputeTotalMass(LAMMPS *lmp, int narg, char **arg) :
 {
   if ((narg != 3)&&(narg != 4)) error->all("Illegal compute totalmass command");
 
-  filename=NULL;
-  fp=NULL;
+  filename = NULL;
+  fp = NULL;
 
   if(narg==4)
   {
@@ -75,20 +76,26 @@ void ComputeTotalMass::init()
 /* ---------------------------------------------------------------------- */
 
 double ComputeTotalMass ::compute_scalar()
-{
+{/*
   invoked_scalar = update->ntimestep;
-  scalar = group->mass(igroup);
-  if((me==0)&&(filename!=NULL)) fp = fopen(filename,"a");
-  if(filename!=NULL)
+  scalar = 0.;//group->mass(igroup);
+
+  if(me==0 && filename) fp = fopen(filename,"a");
+  if(me==0 && !fp) error->one("Compute totalmass could not open file");
+
+  if(me==0)
   {
       fprintf(fp,"%d %f %f\n",update->ntimestep,static_cast<double>(update->ntimestep)*update->dt,scalar);
       fclose(fp);
   }
-  return scalar;
+  return scalar;*/
 }
 
 void ComputeTotalMass ::compute_local()
 {
-  invoked_local = update->ntimestep;
-  vector_local[0]=compute_scalar();
+  invoked_local = update->ntimestep;/*
+  double myscalar = compute_scalar();
+  MPI_Bcast(&myscalar, 1, MPI_DOUBLE, 0, world);
+  vector_local[0] = myscalar;*/
+  vector_local[0]  = 0.;
 }

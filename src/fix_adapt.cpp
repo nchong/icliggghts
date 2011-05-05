@@ -116,6 +116,9 @@ FixAdapt::FixAdapt(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   }
 
   fppat=NULL; 
+
+  if(rad_mass_vary_flag) force_reneighbor = 1;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -139,8 +142,13 @@ FixAdapt::~FixAdapt()
   delete [] pairptr;
   delete [] pairindex;
   delete [] awhich;
+}
 
-  if (fppat) modify->delete_fix(fixid); 
+/* ---------------------------------------------------------------------- */
+
+void FixAdapt::pre_delete()
+{
+    if (fppat) modify->delete_fix(fixid); 
 }
 
 /* ---------------------------------------------------------------------- */
@@ -154,7 +162,7 @@ int FixAdapt::setmask()
 
 /* ---------------------------------------------------------------------- */
 
-void FixAdapt::init()
+void FixAdapt::post_create()
 {
   // error checks
 
@@ -210,6 +218,12 @@ void FixAdapt::init()
 
   }
 
+  if(rad_mass_vary_flag) next_reneighbor = update->ntimestep + 1;
+}
+
+void FixAdapt::init()
+{
+
   // set params to values for initial force calculation
   // needs to happen here in init() instead of setup()
   // because modify->setup() is called after pre-Verlet forces are computed
@@ -262,6 +276,7 @@ void FixAdapt::pre_force(int vflag)
             radius[i] = 0.5*value;
             rmass[i] = 4.0*PI/3.0 * radius[i]*radius[i]*radius[i] * density[i];
           }
+        
       }
     }
   }

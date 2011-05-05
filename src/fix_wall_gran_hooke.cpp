@@ -52,113 +52,29 @@ enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY};
 FixWallGranHooke::FixWallGranHooke(LAMMPS *lmp, int narg, char **arg) :
   FixWallGranHookeHistory(lmp, narg, arg)
 {
-    shearhistory=0;
-    initSubstyle();
-}
-
-/* ---------------------------------------------------------------------- */
-
-int FixWallGranHooke::setmask()
-{
-  int mask = 0;
-  mask |= POST_FORCE;
-  mask |= POST_FORCE_RESPA;
-  return mask;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixWallGranHooke::initSubstyle()
-{
-  if (!(force->pair_match("gran/hooke",0))) error->all("Fix wall/gran/hooke can only be used together with pair style gran/hooke");
-
-  // initialize as if particle is not touching wall
-  int nlocal = atom->nlocal;
-  for (int i = 0; i < nlocal; i++)
-  {
-      npartners[i]=0;
-      for (int k=0;k<maxpartners;k++)
-      {
-          partner[i][k][0] = partner[i][k][0] = -1;
-      }
-  }
 
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixWallGranHooke::init()
+void FixWallGranHooke::compute_force(int ip, double deltan, double rsq,double meff_wall, double dx, double dy, double dz,double *vwall,double *c_history,double area_ratio)
 {
-  dt = update->dt;
-
-  if (strcmp(update->integrate_style,"respa") == 0)
-    nlevels_respa = ((Respa *) update->integrate)->nlevels;
-
-  if ((wallstyle==MESHGRAN) && (fix_tri_neighlist==NULL)) registerTriNeighlist(1);
-
-  if (!(force->pair_match("gran/hooke",0))) error->all("Fix wall/gran/hooke can only be used together with pair style gran/hooke");
-
-  mpg = static_cast<PairGranHooke*>(force->pair)->getMatProp();
-
-  fr=NULL;
-  for(int ifix=0;ifix<modify->nfix;ifix++)
-  {
-      if(strncmp(modify->fix[ifix]->style,"rigid",5)==0) fr=static_cast<FixRigid*>(modify->fix[ifix]);
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixWallGranHooke::resetShearHistory(int i,int j)
-{
-}
-
-/* ---------------------------------------------------------------------- */
-
-inline int FixWallGranHooke::add_to_contact_list(int i,int iFMG,int iTri)
-{
-    for(int k=0;k<npartners[i];k++)
-        if(partner[i][k][0]==iFMG && partner[i][k][1]==iTri) return k;
-
-    if(npartners[i]==maxpartners) grow_arrays_maxtritouch(atom->nmax);
-
-    partner[i][npartners[i]][0]=iFMG;
-    partner[i][npartners[i]][1]=iTri;
-    npartners[i]++;
-
-    //skip shear transition here
-
-    return (npartners[i]-1);
-}
-
-/* ---------------------------------------------------------------------- */
-
-inline void FixWallGranHooke::remove_from_contact_list(int i,int iFMG,int iTri)
-{
-    for(int k=0;k<npartners[i];k++)
-        if(partner[i][k][0]==iFMG && partner[i][k][0]==iTri)
-        {
-            partner[i][k][0] = partner[i][npartners[i]-1][0];
-            partner[i][k][1] = partner[i][npartners[i]-1][1];
-
-            partner[i][npartners[i]-1][0] = -1;
-            partner[i][npartners[i]-1][1] = -1;
-            npartners[i]--;
-        }
-    return;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixWallGranHooke::compute_force(int ip, double rsq, double dx, double dy, double dz,
-			double *vwall, double *v,
-			double *f, double *omega, double *torque,
-			double radius, double mass, double *shear, /*shear is not used!*/
-			double kn,double kt,double gamman, double gammat, double xmu)
-{
-  double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3;
-  double wr1,wr2,wr3,meff,damp,ccel,vtr1,vtr2,vtr3,vrel;
+  double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3,wrmag;
+  double wr1,wr2,wr3,damp,ccel,vtr1,vtr2,vtr3,vrel;
   double fn,fs,ft,fs1,fs2,fs3,fx,fy,fz,tor1,tor2,tor3,rinv,rsqinv;
+  double kn, kt, gamman, gammat, xmu, rmu;
+
+  double *f = atom->f[ip];
+  double *torque = atom->torque[ip];
+  double *v = atom->v[ip];
+  double *omega = atom->omega[ip];
+  double radius = atom->radius[ip];
+  double mass = atom->rmass[ip];
+  double cr = radius - 0.5*deltan;
+
+  //get the parameters needed to resolve the contact
+  //deltan > 0 needed in this function
+  deriveContactModelParams(ip,-deltan,meff_wall,kn,kt,gamman,gammat,xmu,rmu);
 
   r = sqrt(rsq);
   rinv = 1.0/r;
@@ -185,14 +101,12 @@ void FixWallGranHooke::compute_force(int ip, double rsq, double dx, double dy, d
 
   // relative rotational velocity
 
-  wr1 = radius*omega[0] * rinv;
-  wr2 = radius*omega[1] * rinv;
-  wr3 = radius*omega[2] * rinv;
+  wr1 = cr*omega[0] * rinv;
+  wr2 = cr*omega[1] * rinv;
+  wr3 = cr*omega[2] * rinv;
 
   // normal forces = Hookian contact + normal velocity damping
 
-  meff = mass;
-  if(fr&&fr->body[ip]>=0) meff=fr->masstotal[fr->body[ip]];  
   damp = gamman*vnnr*rsqinv;   
   ccel = kn*(radius-r)*rinv - damp;
   
@@ -223,15 +137,26 @@ void FixWallGranHooke::compute_force(int ip, double rsq, double dx, double dy, d
   fy = dy*ccel + fs2;
   fz = dz*ccel + fs3;
 
-  f[0] += fx;
-  f[1] += fy;
-  f[2] += fz;
+  f[0] += fx*area_ratio;
+  f[1] += fy*area_ratio;
+  f[2] += fz*area_ratio;
 
   tor1 = rinv * (dy*fs3 - dz*fs2);
   tor2 = rinv * (dz*fs1 - dx*fs3);
   tor3 = rinv * (dx*fs2 - dy*fs1);
-  torque[0] -= radius*tor1;
-  torque[1] -= radius*tor2;
-  torque[2] -= radius*tor3;
+  if(rollingflag)
+  {
+	    wrmag = sqrt(wr1*wr1+wr2*wr2+wr3*wr3);
+	    if (wrmag > 0.)
+	    {
+	        tor1 += rmu*kn*(radius-r)*wr1/wrmag;
+            tor2 += rmu*kn*(radius-r)*wr2/wrmag;
+            tor3 += rmu*kn*(radius-r)*wr3/wrmag;
+	    }
+  }
+
+  torque[0] -= cr*tor1*area_ratio;
+  torque[1] -= cr*tor2*area_ratio;
+  torque[2] -= cr*tor3*area_ratio;
 }
 

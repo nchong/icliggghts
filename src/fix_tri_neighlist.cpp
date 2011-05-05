@@ -36,7 +36,7 @@ See the README file in the top-level LAMMPS directory.
 #include "error.h"
 #include "neighbor.h"
 #include "comm.h"
-#include "fix_wall_gran_hooke_history.h"
+#include "fix_wall_gran.h"
 #include "triSpherePenetration.h"
 #include "fix_propertyPerAtom.h"
 #include "fix_meshGran.h"
@@ -51,8 +51,6 @@ using namespace LAMMPS_NS;
 #define MIN(A,B) ((A) < (B)) ? (A) : (B)
 #define MAX(A,B) ((A) > (B)) ? (A) : (B)
 
-#include "debug_single_CAD.h"
-
 /* ---------------------------------------------------------------------- */
 
 FixTriNeighlist::FixTriNeighlist(LAMMPS *lmp, int narg, char **arg) :
@@ -63,18 +61,16 @@ FixTriNeighlist::FixTriNeighlist(LAMMPS *lmp, int narg, char **arg) :
     caller_id=new char[strlen(arg[3]) + 1];
     strcpy(caller_id,arg[3]);
 
-    int ifix=modify->find_fix(caller_id);
+    int ifix = modify->find_fix(caller_id);
     if (ifix<0) error->all("Illegal fix id provided to neighlist/tri command");
 
-    if(strncmp(modify->fix[ifix]->style,"wall/gran",9)!=0) error->all("Illegal fix id provided to neighlist/tri command (is not of type wall/gran)");
+    if(strncmp(modify->fix[ifix]->style,"wall/gran",9) != 0) error->all("Illegal fix id provided to neighlist/tri command (is not of type wall/gran)");
 
-    caller=static_cast<FixWallGranHookeHistory*>(modify->fix[ifix]);
-    nFixMeshGran=static_cast<FixWallGranHookeHistory*>(caller)->nFixMeshGran;
-    FixMeshGranList=static_cast<FixWallGranHookeHistory*>(caller)->FixMeshGranList;
+    caller = static_cast<FixWallGran*>(modify->fix[ifix]);
+    nFixMeshGran = static_cast<FixWallGran*>(caller)->nFixMeshGran;
+    FixMeshGranList = static_cast<FixWallGran*>(caller)->FixMeshGranList;
 
     //initialise members
-    bsubboxlo=new double[3];
-    bsubboxhi=new double[3];
     buildNeighList=0;
     nTriList=NULL;
     tri_neighlist=NULL;
@@ -128,6 +124,12 @@ void FixTriNeighlist::init()
     
     do_warn=1;
     buildNeighList=1;
+
+    xper = domain->xperiodic;
+    yper = domain->yperiodic;
+    zper = domain->zperiodic;
+
+    skin = neighbor->skin;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -145,26 +147,17 @@ int FixTriNeighlist::setmask()
 void FixTriNeighlist::pre_neighbor()
 {
     
-    buildNeighList=1;
-
-    FixMeshGran* fmg;
-    for(int iList=0;iList<nFixMeshGran;iList++)
-    {
-        fmg=FixMeshGranList[iList];
-        
-        if (fmg->STLdata->movingMesh) fmg->STLdata->before_rebuild();
-    }
-
+    buildNeighList = 1;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixTriNeighlist::pre_force(int vflag)
 {
-    int iList;
+    int iList,iTri,nTri;
     FixMeshGran* fmg;
-    double **vatom=atom->v;
-    double dt=update->dt;
+    double **vatom = atom->v;
+    double dt = update->dt;
     double maxmoveSq;
     bool excl;
 
@@ -176,110 +169,149 @@ void FixTriNeighlist::pre_force(int vflag)
     //if neighbor list was not built this step, return now
     if (!buildNeighList) return;
 
-    buildNeighList=0;
+    buildNeighList = 0;
 
     //unset non-touching contacts
     unset_nontouching();
 
-    int neigh_style=neighbor->style;
-    if(neigh_style!=1) error->all("Please use style 'bin' in the 'neighbor' command together with triangular walls");
-    double skin=neighbor->skin;
-    double skin_safety=1.;                    
-    double cutneighmax=neighbor->cutneighmax; 
+    for(int iList = 0; iList < nFixMeshGran; iList++)
+    {
+        fmg = FixMeshGranList[iList];
+        
+        if (fmg->STLdata->movingMesh) fmg->STLdata->before_rebuild();
+    }
+
+    if(neighbor->style != 1) error->all("Please use style 'bin' in the 'neighbor' command together with triangular walls");
+    skin = neighbor->skin;
+    skin_safety = 1.;                    
+    cutneighmax = neighbor->cutneighmax; 
     
-    int mbinx=neighbor->mbinx;
-    int mbiny=neighbor->mbiny;
-    int *bins=neighbor->bins;
-    int *binhead=neighbor->binhead;
+    mbinx = neighbor->mbinx;
+    mbiny = neighbor->mbiny;
+    mbinz = neighbor->mbinz;
+    bins = neighbor->bins;
+    binhead = neighbor->binhead;
 
-    //some allocations
-    int ix,ixmin,ixmax,iy,iymin,iymax,iz,izmin,izmax,binmin,binmax;
-    int iTri,nTri,ibin;
-    double *tri_xmin=new double[3];
-    double *tri_xmax=new double[3];
+    int dangerous_build = 0;
 
-    double dist,treshold;
-
-    int dangerous_build=0;
-
-    for(int j=0;j<3;j++)
+    for(int j = 0; j < 3; j++)
     {
         bsubboxlo[j] = domain->sublo[j] - comm->cutghost[j];
         bsubboxhi[j] = domain->subhi[j] + comm->cutghost[j];
     }
 
-    double en0[3]; //just a dummy
+    boxhi = domain->boxhi;
+    boxlo = domain->boxlo;
 
     flag_old_list();
 
-    int iatom_bin;
-
-    for(iList=0;iList<nFixMeshGran;iList++)
+    for(iList = 0; iList < nFixMeshGran; iList++)
     {
         
-        fmg=FixMeshGranList[iList];
-        nTri=fmg->nTri;
+        fmg = FixMeshGranList[iList];
+        nTri = fmg->nTri;
 
         if (fmg->STLdata->movingMesh) skin_safety = 2.2;
-        else skin_safety=1.1;
+        else skin_safety = 1.1;
 
-        treshold=skin*0.5*skin_safety;
+        treshold = skin*0.5*skin_safety;
 
-        for(iTri=0;iTri<nTri;iTri++)
+        for(iTri = 0; iTri < nTri; iTri++)
         {
             
-            fmg->STLdata->getTriBoundBox(iTri,tri_xmin,tri_xmax,(cutneighmax+(skin_safety-1.)*skin)+SMALL_DELTA);
+            check_tri(fmg,iTri,iList,dangerous_build);
+        }
+    }
 
-            if (!check_box_overlap(bsubboxlo,bsubboxhi,tri_xmin,tri_xmax)) continue;
+    int maxwalllist_all;
+    MPI_Allreduce(&maxwalllist,&maxwalllist_all,1,MPI_INT,MPI_MAX,world);
+    
+    while(maxwalllist<maxwalllist_all)
+    {
+        grow_arrays_maxtritouch(atom->nmax);
+    }
+
+    clear_old_entries();
+
+    check_dangerous_build(dangerous_build);
+
+}
+
+/* ------------------------------------------------------------------------------------------------------- */
+
+inline void FixTriNeighlist::check_tri(FixMeshGran *fmg,int iTri,int iList,int &dangerous_build)
+{
+            bool excl;
+            double en0[3]; //just a dummy
+
+            //some allocations
+            int iatom_bin,ibin,ix,ixmin,ixmax,iy,iymin,iymax,iz,izmin,izmax,binmin,binmax;
+            double tri_xmin[3],tri_xmax[3], dist;
+
+            fmg->STLdata->getTriBoundBox(iTri,tri_xmin,tri_xmax,(cutneighmax+(skin_safety-1.)*skin)+SMALL_DELTA);
 
             for(int j=0;j<3;j++)
             {
-                if(tri_xmin[j]<bsubboxlo[j]) tri_xmin[j]=bsubboxlo[j]+SMALL_DELTA;
-                if(tri_xmax[j]>bsubboxhi[j]) tri_xmax[j]=bsubboxhi[j]-SMALL_DELTA;
+                if(tri_xmin[j] <  boxlo[j] - SMALL_DELTA) tri_xmin[j] = boxlo[j] - SMALL_DELTA;
+                if(tri_xmax[j] >  boxhi[j] + SMALL_DELTA) tri_xmax[j] = boxhi[j] + SMALL_DELTA;
             }
 
-            binmin=neighbor->coord2bin(tri_xmin);
+            if (!check_box_overlap(bsubboxlo,bsubboxhi,tri_xmin,tri_xmax)) return;
+
+            for(int j=0;j<3;j++)
+            {
+                if(tri_xmin[j]<bsubboxlo[j]) tri_xmin[j]=bsubboxlo[j]-SMALL_DELTA;
+                if(tri_xmax[j]>bsubboxhi[j]) tri_xmax[j]=bsubboxhi[j]+SMALL_DELTA;
+            }
+
+            binmin = neighbor->coord2bin(tri_xmin);
             ixmin = (binmin % (mbiny*mbinx)) % mbinx;
+            if(ixmin < 0) ixmin = 0;
             iymin = static_cast<int>(round(static_cast<double>(((binmin - ixmin) % (mbiny*mbinx)))/static_cast<double>(mbinx)));
-            izmin = static_cast<int>(round(static_cast<double>((binmin - ixmin - iymin*mbiny))/static_cast<double>((mbiny*mbinx))));
+            if(iymin < 0) iymin = 0;
+            izmin = static_cast<int>(round(static_cast<double>((binmin - ixmin - iymin*mbinx))/static_cast<double>((mbiny*mbinx))));
+            if(izmin < 0) izmin = 0;
             binmax= neighbor->coord2bin(tri_xmax);
             ixmax = (binmax % (mbiny*mbinx)) % mbinx;
-            iymax = static_cast<int>(round(static_cast<double>(((binmax - ixmin) % (mbiny*mbinx)))/static_cast<double>(mbinx)));
-            izmax = static_cast<int>(round(static_cast<double>((binmax - ixmin - iymin*mbiny))/static_cast<double>((mbiny*mbinx))));
+            if(ixmax > mbinx-1) ixmax = mbinx-1;
+            iymax = static_cast<int>(round(static_cast<double>(((binmax - ixmax) % (mbiny*mbinx)))/static_cast<double>(mbinx)));
+            if(iymax > mbiny-1) iymax = mbiny-1;
+            izmax = static_cast<int>(round(static_cast<double>((binmax - ixmax - iymax*mbinx))/static_cast<double>((mbiny*mbinx))));
+            if(izmax > mbinz-1) izmax = mbinz-1;
 
-            ix=ixmin;
-            iy=iymin;
-            iz=izmin;
-            while(ix<=ixmax)
+            ix = ixmin;
+            iy = iymin;
+            iz = izmin;
+            while(ix <= ixmax)
             {
-                iy=iymin;
-                iz=izmin;
-                while(iy<=iymax)
+                iy = iymin;
+                iz = izmin;
+                while(iy <= iymax)
                 {
 
-                    iz=izmin;
-                    while(iz<=izmax)
+                    iz = izmin;
+                    while(iz <= izmax)
                     {
 
-                        ibin=(iz*mbiny*mbinx + iy*mbinx + ix);
-                        
-                        iatom_bin=binhead[ibin];
-                        while(iatom_bin!=-1 && iatom_bin<atom->nlocal)
-                        {
+                        ibin = (iz*mbiny*mbinx + iy*mbinx + ix);
+                        if(ibin < 0) {iz++;continue;} 
 
+                        iatom_bin = binhead[ibin];
+                        while(iatom_bin != -1 && iatom_bin < atom->nlocal)
+                        {
+                            
                             dist=TRISPHERE::resolveTriSphereContact(lmp,iatom_bin,iTri,fmg->STLdata,F_SHRINKAGE,en0,true,treshold,excl); //call it with shrinkage =0
                             
-                            if(dist<treshold) 
+                            if(dist < treshold) 
                             {
                                 
                                 int append = addTriToNeighList(iatom_bin,iTri,iList);
-                                dangerous_build = MAX(dangerous_build, check_dangerous(dist,append) );
+                                dangerous_build = MAX(dangerous_build, check_dangerous(dist,append,atom->x[iatom_bin],atom->radius[iatom_bin]));
 
                                 if(dangerous_build&&do_warn_dangerous)
                                 {
                                     
                                 }
-
                             }
                             if (bins!=NULL) iatom_bin=bins[iatom_bin];
                             else iatom_bin=-1;
@@ -290,37 +322,23 @@ void FixTriNeighlist::pre_force(int vflag)
                 }
                 ix++;
             }
-        }
-    }
-    
-    int maxwalllist_all;
-    MPI_Allreduce(&maxwalllist,&maxwalllist_all,1,MPI_INT,MPI_MAX,world);
-    
-    while(maxwalllist<maxwalllist_all)
-    {
-        grow_arrays_maxtritouch(atom->nmax);
-    }
-
-    clear_old_entries();
-    delete []tri_xmin;
-    delete []tri_xmax;
-
-    check_dangerous_build(dangerous_build);
-
 }
 
 /* ------------------------------------------------------------------------------------------------------- */
 
 inline void FixTriNeighlist::check_dangerous_build(int dangerous_build)
 {
-    int dangerous_build_all=0;
+    int dangerous_build_all = 0;
     MPI_Allreduce(&dangerous_build,&dangerous_build_all,1,MPI_INT,MPI_MAX,world);
     if(do_warn_dangerous && dangerous_build_all)
     {
-        if(screen&&comm->me==0) fprintf(screen,"At step %d\n",update->ntimestep);
-        error->warning("Dangerous build in triangle neighbor list.");
-        if(logfile) fprintf(logfile,"WARNING: Dangerous build in triangle neighbor list.\n");
-        
+        if(comm->me==0)
+        {
+            if(screen) fprintf(screen,"At step %d\n",update->ntimestep);
+            error->warning("Dangerous build in triangle neighbor list.");
+            if(logfile) fprintf(logfile,"WARNING: Dangerous build in triangle neighbor list.\n");
+        }
+
     }
     
     do_warn_dangerous=1;
@@ -331,9 +349,9 @@ inline void FixTriNeighlist::flag_old_list()
 {
     //clear neigh list
     for(int i = 0; i < atom->nlocal; i++){
-        if(nTriList[i]>maxwalllist) error->one("Internal error: Inconsistent neigh list");
-        for (int j=0;j<nTriList[i];j++){
-            tri_neighlist[i][j][0]=-(tri_neighlist[i][j][0]+2);
+        if(nTriList[i] > maxwalllist) error->one("Internal error: Inconsistent neigh list");
+        for (int j = 0; j < nTriList[i]; j++){
+            tri_neighlist[i][j][0] =- (tri_neighlist[i][j][0] + 2);
         }
     }
 }
@@ -344,12 +362,12 @@ inline void FixTriNeighlist::clear_old_entries()
     //clear old neigh list entries
     int iMesh, iTri;
     for(int i = 0; i < atom->nlocal; i++){
-        for (int j=0;j<nTriList[i];j++){
-            iMesh=tri_neighlist[i][j][0];
-            iTri=tri_neighlist[i][j][1];
+        for (int j = 0; j < nTriList[i]; j++){
+            iMesh = tri_neighlist[i][j][0];
+            iTri = tri_neighlist[i][j][1];
 
-            if(iMesh==-1)error->all("Internal error: Inconsistent neigh list");
-            while(iMesh<-1)
+            if(iMesh == -1)error->all("Internal error: Inconsistent neigh list");
+            while(iMesh < -1)
             {
                 tri_neighlist[i][j][0] = tri_neighlist[i][nTriList[i]-1][0];
                 tri_neighlist[i][j][1] = tri_neighlist[i][nTriList[i]-1][1];
@@ -457,10 +475,14 @@ inline int FixTriNeighlist::addTriToNeighList(int ip,int iTri, int iMeshGran)
 }
 
 /* ---------------------------------------------------------------------- */
-inline int FixTriNeighlist::check_dangerous(double dist, int append)
+inline int FixTriNeighlist::check_dangerous(double dist, int append,double *x,double r)
 {
     
-    if(dist>=0. || append!=1 ) return 0;
+    if(dist >= 0. || append != 1) return 0;
+
+    if(xper && (MathExtra::abs(x[0] - domain->boxhi[0]) < skin/2. || MathExtra::abs(x[0] - domain->boxlo[0]) < skin/2.)) return 0;
+    if(yper && (MathExtra::abs(x[1] - domain->boxhi[1]) < skin/2. || MathExtra::abs(x[1] - domain->boxlo[1]) < skin/2.)) return 0;
+    if(zper && (MathExtra::abs(x[2] - domain->boxhi[2]) < skin/2. || MathExtra::abs(x[2] - domain->boxlo[2]) < skin/2.)) return 0;
 
     return 1;
 }
@@ -486,7 +508,7 @@ inline void FixTriNeighlist::unset_nontouching()
             deltan=TRISPHERE::resolveTriSphereContact(lmp,i,iTri,caller->FixMeshGranList[iFMG]->STLdata,F_SHRINKAGE,en0,false,0.,excl);
             if(deltan>=0.||excl)
             {
-                caller->remove_from_contact_list(i,iFMG,iTri);
+                caller->remove_from_contact_list_ext(i,iFMG,iTri);
             }
         }
     }
@@ -612,5 +634,20 @@ int FixTriNeighlist::unpack_exchange(int nlocal, double *buf)
     tri_neighlist[nlocal][k][1] = static_cast<int>(buf[m++]);
   }
   return m;
+}
+
+/* ----------------------------------------------------------------------
+   count number of wall neighbors on local proc
+------------------------------------------------------------------------- */
+
+int FixTriNeighlist::n_neighs()
+{
+    int nlocal = atom->nlocal;
+    int nneighs = 0;
+
+    for (int i = 0; i < nlocal; i++)
+        nneighs += nTriList[i];
+
+    return nneighs;
 }
 

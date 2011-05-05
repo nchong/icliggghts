@@ -810,6 +810,7 @@ int AtomVecGranular::unpack_restart(double *buf)
   }
 
   atom->nlocal++;
+
   return m;
 }
 

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -78,7 +78,7 @@ int MinCG::iterate(int niter_max)
     // line minimization along direction h from current atom->x
 
     eprevious = ecurrent;
-    fail = (this->*linemin)(ecurrent,alpha_final,neval);    
+    fail = (this->*linemin)(ecurrent,alpha_final,neval);
     if (fail) return fail;
 
     // function evaluation criterion
@@ -87,7 +87,7 @@ int MinCG::iterate(int niter_max)
 
     // energy tolerance criterion
 
-    if (fabs(ecurrent-eprevious) < 
+    if (fabs(ecurrent-eprevious) <
 	update->etol * 0.5*(fabs(ecurrent) + fabs(eprevious) + EPS_ENERGY))
       return ETOL;
 

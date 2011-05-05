@@ -38,6 +38,7 @@
 #include "output.h"
 #include "memory.h"
 #include "error.h"
+#include "fix_tri_neighlist.h"
 
 using namespace LAMMPS_NS;
 
@@ -471,8 +472,8 @@ void Neighbor::init()
       else if (requests[i]->granhistory) {
 	lists[i-1]->listgranhistory = lists[i];
 	for (int ifix = 0; ifix < modify->nfix; ifix++)
-	  if (strcmp(modify->fix[ifix]->style,"SHEAR_HISTORY") == 0)
-	    lists[i-1]->fix_history = (FixShearHistory *) modify->fix[ifix];
+	  if (strcmp(modify->fix[ifix]->style,"contacthistory") == 0)
+	    lists[i-1]->fix_history = (FixContactHistory *) modify->fix[ifix]; 
 
       } else if (requests[i]->respaouter) {
 	if (requests[i-1]->respainner) {
@@ -866,59 +867,59 @@ void Neighbor::choose_stencil(int index, NeighRequest *rq)
   else if (rq->half || rq->gran || rq->respaouter) {
     if (style == BIN) {
       if (rq->newton == 0) {
-	if (newton_pair == 0) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_bin_2d_no_newton;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_bin_3d_no_newton;
-	} else if (triclinic == 0) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_bin_2d_newton;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_bin_3d_newton;
-	} else if (triclinic == 1) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_bin_2d_newton_tri;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_bin_3d_newton_tri;
-	}
+        if (newton_pair == 0) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_bin_2d_no_newton;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_bin_3d_no_newton;
+        } else if (triclinic == 0) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_bin_2d_newton;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_bin_3d_newton;
+        } else if (triclinic == 1) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_bin_2d_newton_tri;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_bin_3d_newton_tri;
+        }
       } else if (rq->newton == 1) {
-	if (triclinic == 0) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_bin_2d_newton;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_bin_3d_newton;
-	} else if (triclinic == 1) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_bin_2d_newton_tri;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_bin_3d_newton_tri;
-	}
+        if (triclinic == 0) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_bin_2d_newton;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_bin_3d_newton;
+        } else if (triclinic == 1) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_bin_2d_newton_tri;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_bin_3d_newton_tri;
+        }
       } else if (rq->newton == 2) {
-	if (dimension == 2)
-	  sc = &Neighbor::stencil_half_bin_2d_no_newton;
-	else if (dimension == 3)
-	  sc = &Neighbor::stencil_half_bin_3d_no_newton;
+        if (dimension == 2)
+          sc = &Neighbor::stencil_half_bin_2d_no_newton;
+        else if (dimension == 3)
+          sc = &Neighbor::stencil_half_bin_3d_no_newton;
       }
 
     } else if (style == MULTI) {
       if (rq->newton == 0) {
-	if (newton_pair == 0) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_multi_2d_no_newton;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_multi_3d_no_newton;
-	} else if (triclinic == 0) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_multi_2d_newton;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_multi_3d_newton;
-	} else if (triclinic == 1) {
-	  if (dimension == 2)
-	    sc = &Neighbor::stencil_half_multi_2d_newton_tri;
-	  else if (dimension == 3)
-	    sc = &Neighbor::stencil_half_multi_3d_newton_tri;
-	}
+        if (newton_pair == 0) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_multi_2d_no_newton;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_multi_3d_no_newton;
+        } else if (triclinic == 0) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_multi_2d_newton;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_multi_3d_newton;
+        } else if (triclinic == 1) {
+          if (dimension == 2)
+            sc = &Neighbor::stencil_half_multi_2d_newton_tri;
+          else if (dimension == 3)
+            sc = &Neighbor::stencil_half_multi_3d_newton_tri;
+        }
       } else if (rq->newton == 1) {
 	if (triclinic == 0) {
 	  if (dimension == 2)
@@ -1613,4 +1614,36 @@ double Neighbor::memory_usage()
   bytes += maximproper*5 * sizeof(int);
 
   return bytes;
+}
+
+/* ----------------------------------------------------------------------
+   return # neighs
+------------------------------------------------------------------------- */
+
+int Neighbor::n_neighs()
+{
+    // find a non-skip neighbor list containing half the pairwise interactions
+    // count neighbors in that list for stats purposes
+
+    int m;
+
+    for (m = 0; m < old_nrequest; m++)
+      if ((old_requests[m]->half || old_requests[m]->gran || old_requests[m]->respaouter || old_requests[m]->half_from_full) &&
+	      old_requests[m]->skip == 0) break;
+
+    int nneigh = 0;
+
+    if (m < old_nrequest) {
+      int inum = lists[m]->inum;
+      
+      int *ilist = lists[m]->ilist;
+      int *numneigh = lists[m]->numneigh;
+      for (int ii = 0; ii < inum; ii++)
+      {
+        
+        nneigh += numneigh[ilist[ii]];
+      }
+    }
+
+    return nneigh;
 }

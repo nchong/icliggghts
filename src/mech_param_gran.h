@@ -28,33 +28,15 @@ namespace LAMMPS_NS {
 
 class MechParamGran: protected Pointers
 {
- friend class PairGranHookeHistory;
- friend class FixWallGranHookeHistory;
- friend class FixCheckTimestepGran;
-
  public:
 
   MechParamGran(LAMMPS *lmp);
   ~MechParamGran();
 
-  int min_type,max_type;
+  int max_type();
 
-  class FixPropertyGlobal* Y1; //Youngs Modulus
-  class FixPropertyGlobal* v1; //Poisson's ratio
-  class FixPropertyGlobal* cohEnergyDens1; //Cohesion energy density
-
-  class FixPropertyGlobal* coeffRest1; //coefficient of restitution
-  class FixPropertyGlobal* coeffFrict1; //coefficient of (static) friction
-
-  class FixPropertyGlobal* charVel1; //characteristic velocity needed for Linear Spring Model
-
-  double **Yeff,**Geff,**betaeff,**veff,**cohEnergyDens,**coeffRestLog,**coeffFrict,charVel;
-
-  bool arrays_active;
-
-  void create_arrays(int);
-  void destroy_arrays();
-  void getMaterialParams(int,int);
+ private:
+  int mintype,maxtype;
 }; //end class
 
 }

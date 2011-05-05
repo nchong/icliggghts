@@ -1150,7 +1150,8 @@ double Group::gyration(int igroup, double masstotal, double *cm, int iregion)
 }
 
 /* ----------------------------------------------------------------------
-   compute the angular momentum L (lmom) of group around center-of-mass cm
+   compute the angular momentum L (lmom) of group
+   around center-of-mass cm
    must unwrap atoms to compute L correctly
 ------------------------------------------------------------------------- */
 
@@ -1194,7 +1195,134 @@ void Group::angmom(int igroup, double *cm, double *lmom)
 }
 
 /* ----------------------------------------------------------------------
-   compute moment of inertia tensor around center-of-mass cm
+   compute the angular momentum L (lmom) of group of atoms in region
+   around center-of-mass cm
+   must unwrap atoms to compute L correctly
+------------------------------------------------------------------------- */
+
+void Group::angmom(int igroup, double *cm, double *lmom, int iregion)
+{
+  int groupbit = bitmask[igroup];
+  Region *region = domain->regions[iregion];
+
+  double **x = atom->x;
+  double **v = atom->v;
+  int *mask = atom->mask;
+  int *type = atom->type;
+  int *image = atom->image;
+  double *mass = atom->mass;
+  double *rmass = atom->rmass;
+  int nlocal = atom->nlocal;
+
+  int xbox,ybox,zbox;
+  double dx,dy,dz,massone;
+  double xprd = domain->xprd;
+  double yprd = domain->yprd;
+  double zprd = domain->zprd;
+  double p[3];
+  p[0] = p[1] = p[2] = 0.0;
+
+  for (int i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit && region->match(x[i][0],x[i][1],x[i][2])) {
+      xbox = (image[i] & 1023) - 512;
+      ybox = (image[i] >> 10 & 1023) - 512;
+      zbox = (image[i] >> 20) - 512;
+      dx = (x[i][0] + xbox*xprd) - cm[0];
+      dy = (x[i][1] + ybox*yprd) - cm[1];
+      dz = (x[i][2] + zbox*zprd) - cm[2];
+      if (rmass) massone = rmass[i];
+      else massone = mass[type[i]];
+      p[0] += massone * (dy*v[i][2] - dz*v[i][1]);
+      p[1] += massone * (dz*v[i][0] - dx*v[i][2]);
+      p[2] += massone * (dx*v[i][1] - dy*v[i][0]);
+    }
+
+  MPI_Allreduce(p,lmom,3,MPI_DOUBLE,MPI_SUM,world);
+}
+
+/* ----------------------------------------------------------------------
+   compute the torque T (tq) on group
+   around center-of-mass cm
+   must unwrap atoms to compute T correctly
+------------------------------------------------------------------------- */
+
+void Group::torque(int igroup, double *cm, double *tq)
+{
+  int groupbit = bitmask[igroup];
+
+  double **x = atom->x;
+  double **f = atom->f;
+  int *mask = atom->mask;
+  int *image = atom->image;
+  int nlocal = atom->nlocal;
+
+  int xbox,ybox,zbox;
+  double dx,dy,dz;
+  double xprd = domain->xprd;
+  double yprd = domain->yprd;
+  double zprd = domain->zprd;
+  double tlocal[3];
+  tlocal[0] = tlocal[1] = tlocal[2] = 0.0;
+
+  for (int i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit) {
+      xbox = (image[i] & 1023) - 512;
+      ybox = (image[i] >> 10 & 1023) - 512;
+      zbox = (image[i] >> 20) - 512;
+      dx = (x[i][0] + xbox*xprd) - cm[0];
+      dy = (x[i][1] + ybox*yprd) - cm[1];
+      dz = (x[i][2] + zbox*zprd) - cm[2];
+      tlocal[0] += dy*f[i][2] - dz*f[i][1];
+      tlocal[1] += dz*f[i][0] - dx*f[i][2];
+      tlocal[2] += dx*f[i][1] - dy*f[i][0];
+    }
+
+  MPI_Allreduce(tlocal,tq,3,MPI_DOUBLE,MPI_SUM,world);
+}
+
+/* ----------------------------------------------------------------------
+   compute the torque T (tq) on group of atoms in region
+   around center-of-mass cm
+   must unwrap atoms to compute T correctly
+------------------------------------------------------------------------- */
+
+void Group::torque(int igroup, double *cm, double *tq, int iregion)
+{
+  int groupbit = bitmask[igroup];
+  Region *region = domain->regions[iregion];
+
+  double **x = atom->x;
+  double **f = atom->f;
+  int *mask = atom->mask;
+  int *image = atom->image;
+  int nlocal = atom->nlocal;
+
+  int xbox,ybox,zbox;
+  double dx,dy,dz;
+  double xprd = domain->xprd;
+  double yprd = domain->yprd;
+  double zprd = domain->zprd;
+  double tlocal[3];
+  tlocal[0] = tlocal[1] = tlocal[2] = 0.0;
+
+  for (int i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit && region->match(x[i][0],x[i][1],x[i][2])) {
+      xbox = (image[i] & 1023) - 512;
+      ybox = (image[i] >> 10 & 1023) - 512;
+      zbox = (image[i] >> 20) - 512;
+      dx = (x[i][0] + xbox*xprd) - cm[0];
+      dy = (x[i][1] + ybox*yprd) - cm[1];
+      dz = (x[i][2] + zbox*zprd) - cm[2];
+      tlocal[0] += dy*f[i][2] - dz*f[i][1];
+      tlocal[1] += dz*f[i][0] - dx*f[i][2];
+      tlocal[2] += dx*f[i][1] - dy*f[i][0];
+    }
+
+  MPI_Allreduce(tlocal,tq,3,MPI_DOUBLE,MPI_SUM,world);
+}
+
+/* ----------------------------------------------------------------------
+   compute moment of inertia tensor around center-of-mass cm of group
    must unwrap atoms to compute itensor correctly
 ------------------------------------------------------------------------- */
 
@@ -1224,6 +1352,60 @@ void Group::inertia(int igroup, double *cm, double itensor[3][3])
 
   for (i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
+      xbox = (image[i] & 1023) - 512;
+      ybox = (image[i] >> 10 & 1023) - 512;
+      zbox = (image[i] >> 20) - 512;
+      dx = (x[i][0] + xbox*xprd) - cm[0];
+      dy = (x[i][1] + ybox*yprd) - cm[1];
+      dz = (x[i][2] + zbox*zprd) - cm[2];
+      if (rmass) massone = rmass[i];
+      else massone = mass[type[i]];
+      ione[0][0] += massone * (dy*dy + dz*dz);
+      ione[1][1] += massone * (dx*dx + dz*dz);
+      ione[2][2] += massone * (dx*dx + dy*dy);
+      ione[0][1] -= massone * dx*dy;
+      ione[1][2] -= massone * dy*dz;
+      ione[0][2] -= massone * dx*dz;
+    }
+  ione[1][0] = ione[0][1];
+  ione[2][1] = ione[1][2];
+  ione[2][0] = ione[0][2];
+
+  MPI_Allreduce(&ione[0][0],&itensor[0][0],9,MPI_DOUBLE,MPI_SUM,world);
+}
+
+/* ----------------------------------------------------------------------
+   compute moment of inertia tensor around cm of group of atoms in region
+   must unwrap atoms to compute itensor correctly
+------------------------------------------------------------------------- */
+
+void Group::inertia(int igroup, double *cm, double itensor[3][3], int iregion)
+{
+  int i,j;
+
+  int groupbit = bitmask[igroup];
+  Region *region = domain->regions[iregion];
+
+  double **x = atom->x;
+  int *mask = atom->mask;
+  int *type = atom->type;
+  int *image = atom->image;
+  double *mass = atom->mass;
+  double *rmass = atom->rmass;
+  int nlocal = atom->nlocal;
+
+  int xbox,ybox,zbox;
+  double dx,dy,dz,massone;
+  double xprd = domain->xprd;
+  double yprd = domain->yprd;
+  double zprd = domain->zprd;
+  double ione[3][3];
+  for (i = 0; i < 3; i++)
+    for (j = 0; j < 3; j++)
+      ione[i][j] = 0.0;
+
+  for (i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit && region->match(x[i][0],x[i][1],x[i][2])) {
       xbox = (image[i] & 1023) - 512;
       ybox = (image[i] >> 10 & 1023) - 512;
       zbox = (image[i] >> 20) - 512;

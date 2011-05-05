@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -18,6 +18,7 @@
 #include "atom_vec.h"
 #include "atom_vec_hybrid.h"
 #include "group.h"
+#include "region.h"
 #include "force.h"
 #include "pair.h"
 #include "bond.h"
@@ -33,6 +34,8 @@
 #include "thermo.h"
 #include "memory.h"
 #include "error.h"
+#include "math.h"
+#include "neighbor.h"
 
 using namespace LAMMPS_NS;
 
@@ -64,6 +67,7 @@ WriteRestart::WriteRestart(LAMMPS *lmp) : Pointers(lmp)
 {
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
+  region = NULL;
 }
 
 /* ----------------------------------------------------------------------
@@ -74,7 +78,7 @@ void WriteRestart::command(int narg, char **arg)
 {
   if (domain->box_exist == 0)
     error->all("Write_restart command before simulation box is defined");
-  if (narg != 1) error->all("Illegal write_restart command");
+  if (narg != 1 && narg != 4) error->all("Illegal write_restart command"); 
 
   // if filename contains a "*", replace with current timestep
 
@@ -86,6 +90,15 @@ void WriteRestart::command(int narg, char **arg)
     *ptr = '\0';
     sprintf(file,"%s%d%s",arg[0],update->ntimestep,ptr+1);
   } else strcpy(file,arg[0]);
+
+  int iregion;
+  if(narg == 4 && strcmp(arg[2],"region")) error->all("Write_restart expects keyword 'region'");
+  if(narg == 4)
+  {
+      iregion = domain->find_region(arg[3]);
+      if (iregion == -1) error->all("Write_restart region ID does not exist");
+      else region = domain->regions[iregion];
+  }
 
   // init entire system since comm->exchange is done
   // comm::init needs neighbor::init needs pair::init needs kspace::init, etc
@@ -115,12 +128,24 @@ void WriteRestart::command(int narg, char **arg)
 
 void WriteRestart::write(char *file)
 {
+  
+  if(neighbor->neigh_once()) domain->reset_box();
+
   // natoms = sum of nlocal = value to write into restart file
   // if unequal and thermo lostflag is "error", don't write restart file
 
   double rlocal = atom->nlocal;
+
+  if(region)
+  {
+      rlocal = 0.;
+      for (int i = 0; i < atom->nlocal; i++)
+          if(region->match(atom->x[i][0],atom->x[i][1],atom->x[i][2]))
+             rlocal+=1.;
+  }
+  
   MPI_Allreduce(&rlocal,&natoms,1,MPI_DOUBLE,MPI_SUM,world);
-  if (natoms != atom->natoms && output->thermo->lostflag == ERROR) 
+  if (natoms != atom->natoms && output->thermo->lostflag == ERROR && !region) 
     error->all("Atom count is inconsistent, cannot write restart file");
 
   // check if filename contains "%"
@@ -166,21 +191,34 @@ void WriteRestart::write(char *file)
 
   int max_size;
   int send_size = atom->avec->size_restart();
+
   MPI_Allreduce(&send_size,&max_size,1,MPI_INT,MPI_MAX,world);
 
   double *buf;
-  if (me == 0) 
-    buf = (double *) 
+  if (me == 0)
+    buf = (double *)
       memory->smalloc(max_size*sizeof(double),"write_restart:buf");
   else
-    buf = (double *) 
+    buf = (double *)
       memory->smalloc(send_size*sizeof(double),"write_restart:buf");
 
   // pack my atom data into buf
 
   AtomVec *avec = atom->avec;
   int n = 0;
-  for (int i = 0; i < atom->nlocal; i++) n += avec->pack_restart(i,&buf[n]);
+
+  if(!region) 
+  {
+      for (int i = 0; i < atom->nlocal; i++) n += avec->pack_restart(i,&buf[n]);
+  }
+  else
+  {
+      for (int i = 0; i < atom->nlocal; i++)
+          if(region->match(atom->x[i][0],atom->x[i][1],atom->x[i][2]))
+             n += avec->pack_restart(i,&buf[n]);
+
+      send_size = n;
+  }
 
   // if any fix requires it, remap each atom's coords via PBC
   // is because fix changes atom coords (excepting an integrate fix)
@@ -205,6 +243,7 @@ void WriteRestart::write(char *file)
     int zperiodic = domain->zperiodic;
 
     double *x;
+    if(region) error->all("have to implement more here");
     int m = 0;
     for (int i = 0; i < atom->nlocal; i++) {
       x = &buf[m+1];
@@ -251,7 +290,7 @@ void WriteRestart::write(char *file)
 	  MPI_Wait(&request,&status);
 	  MPI_Get_count(&status,MPI_DOUBLE,&recv_size);
 	} else recv_size = send_size;
-	
+
 	fwrite(&recv_size,sizeof(int),1,fp);
 	fwrite(buf,sizeof(double),recv_size,fp);
       }
@@ -281,12 +320,13 @@ void WriteRestart::write(char *file)
     fwrite(buf,sizeof(double),send_size,fp);
     fclose(fp);
   }
-    
+
   memory->sfree(buf);
+  
 }
 
 /* ----------------------------------------------------------------------
-   proc 0 writes out problem description 
+   proc 0 writes out problem description
 ------------------------------------------------------------------------- */
 
 void WriteRestart::header()
@@ -452,7 +492,7 @@ void WriteRestart::force_fields()
 }
 
 /* ----------------------------------------------------------------------
-   write a flag and an int into restart file 
+   write a flag and an int into restart file
 ------------------------------------------------------------------------- */
 
 void WriteRestart::write_int(int flag, int value)
@@ -462,7 +502,7 @@ void WriteRestart::write_int(int flag, int value)
 }
 
 /* ----------------------------------------------------------------------
-   write a flag and a double into restart file 
+   write a flag and a double into restart file
 ------------------------------------------------------------------------- */
 
 void WriteRestart::write_double(int flag, double value)
@@ -472,7 +512,7 @@ void WriteRestart::write_double(int flag, double value)
 }
 
 /* ----------------------------------------------------------------------
-   write a flag and a char str into restart file 
+   write a flag and a char str into restart file
 ------------------------------------------------------------------------- */
 
 void WriteRestart::write_char(int flag, char *value)

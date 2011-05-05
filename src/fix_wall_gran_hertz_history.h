@@ -39,13 +39,11 @@ namespace LAMMPS_NS {
 class FixWallGranHertzHistory : public FixWallGranHookeHistory {
  public:
   FixWallGranHertzHistory(class LAMMPS *, int, char **);
-  int setmask();
-  void init();
+  void init_substyle();
 
  protected:
 
-  virtual void deriveContactModelParams(int &, double , double &, double &, double &, double &, double &);
-  virtual void initSubstyle();
+  virtual void deriveContactModelParams(int ip, double deltan,double meff_wall, double &kn, double &kt, double &gamman, double &gammat, double &xmu,double &rmu);
 };
 
 }

@@ -41,14 +41,16 @@ class FixCheckTimestepGran : public Fix {
 
  private:
   class MechParamGran* mpg;
-  class FixWallGranHookeHistory* fwggh;
+  class PairGranHookeHistory* pg;
+  class FixWallGran* fwg;
+  class FixPropertyGlobal* Y;
+  class FixPropertyGlobal* nu;
   void calc_rayleigh_hertz_estims();
   double rayleigh_time,hertz_time;
-  double fraction_rayleigh,fraction_hertz;
+  double fraction_rayleigh,fraction_hertz,fraction_skin;
   double fraction_rayleigh_lim,fraction_hertz_lim;
-  class mpg* MechParamGran;
+  double vmax; //max relative velocity
   bool warnflag;
-
 };
 
 }

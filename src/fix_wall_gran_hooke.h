@@ -39,16 +39,10 @@ namespace LAMMPS_NS {
 class FixWallGranHooke : public FixWallGranHookeHistory {
  public:
   FixWallGranHooke(class LAMMPS *, int, char **);
-  int setmask();
-  void init();
 
  protected:
 
-  virtual void compute_force(int, double, double, double, double, double *, double *, double *, double *, double *, double, double, double *,double,double,double,double,double);
-  virtual void resetShearHistory(int, int);
-  virtual void initSubstyle();
-  int add_to_contact_list(int, int, int);
-  void remove_from_contact_list(int, int, int);
+  virtual void compute_force(int ip, double deltan, double rsq,double meff_wall, double dx, double dy, double dz,double *vwall,double *c_history,double area_ratio);
 };
 
 }

@@ -25,7 +25,8 @@ See the README file in the top-level LAMMPS directory.
 #include "math.h"
 #include "domain.h"
 #include "myvector.h"
-
+#include "math_extra.h"
+#define BIG 1.0e20
 #define DELTATRI 5000 
 
 using namespace LAMMPS_NS;
@@ -50,6 +51,7 @@ STLtri::STLtri(LAMMPS *lmp): Pointers(lmp)
     rmass=NULL;
     Area=NULL;
     wear=NULL;
+    wear_step=NULL;
     neighfaces=NULL;
     contactInactive=NULL;
 
@@ -89,6 +91,7 @@ STLtri::~STLtri()
    delete[] rmass;
    delete[] Area;
    delete[] wear;
+   delete[] wear_step;
    lmp->memory->destroy_2d_int_array(neighfaces);
    delete[] contactInactive;
    
@@ -104,23 +107,24 @@ void STLtri::grow_arrays()
     nTriMax+=DELTATRI;
     xvf_lenMax+=DELTATRI*VECPERTRI;
 
-    node=(double***)(lmp->memory->grow_3d_double_array(node,nTriMax, 3 , 3, "stl_tri_node"));
-    node_lastRe=(double***)(lmp->memory->grow_3d_double_array(node_lastRe,nTriMax, 3 , 3, "stl_tri_node_lastRe"));
-    facenormal=(double**)(lmp->memory->grow_2d_double_array(facenormal,nTriMax, 3, "stl_tri_facenormal"));
+    node=(double***)(lmp->memory->grow_3d_double_array(node,nTriMax+1, 3 , 3, "stl_tri_node"));
+    node_lastRe=(double***)(lmp->memory->grow_3d_double_array(node_lastRe,nTriMax+1, 3 , 3, "stl_tri_node_lastRe"));
+    facenormal=(double**)(lmp->memory->grow_2d_double_array(facenormal,nTriMax+1, 3, "stl_tri_facenormal"));
     
-    cK=(double**)(lmp->memory->grow_2d_double_array(cK, nTriMax, 3, "stl_tri_cK"));
-    ogK=(double***)(lmp->memory->grow_3d_double_array(ogK, nTriMax, 3, 3, "stl_tri_ogK"));
-    ogKlen=(double**)(lmp->memory->grow_2d_double_array(ogKlen, nTriMax, 3, "stl_tri_ogKlen"));
-    oKO=(double***)(lmp->memory->grow_3d_double_array(oKO, nTriMax, 3, 3, "stl_tri_oKO"));
-    rK=(double*)(lmp->memory->srealloc(rK, nTriMax*sizeof(double), "stl_tri_rK"));
-    Area=(double*)(lmp->memory->srealloc(Area, nTriMax*sizeof(double), "stl_tri_Area"));
-    wear=(double*)(lmp->memory->srealloc(wear, nTriMax*sizeof(double), "stl_tri_wear"));
-    f_tri=(double**)(lmp->memory->grow_2d_double_array(f_tri,nTriMax,3, "stl_tri_f_tri"));
-    fn_fshear=(double**)(lmp->memory->grow_2d_double_array(fn_fshear,nTriMax,3,"stl_tri_fn_fshear"));
-    neighfaces=(int**)(lmp->memory->grow_2d_int_array(neighfaces,nTriMax, 3, "stl_tri_neighfaces"));
-    contactInactive=(int*)(lmp->memory->srealloc(contactInactive, nTriMax*sizeof(int), "stl_tri_contactActive"));
+    cK=(double**)(lmp->memory->grow_2d_double_array(cK, nTriMax+1, 3, "stl_tri_cK"));
+    ogK=(double***)(lmp->memory->grow_3d_double_array(ogK, nTriMax+1, 3, 3, "stl_tri_ogK"));
+    ogKlen=(double**)(lmp->memory->grow_2d_double_array(ogKlen, nTriMax+1, 3, "stl_tri_ogKlen"));
+    oKO=(double***)(lmp->memory->grow_3d_double_array(oKO, nTriMax+1, 3, 3, "stl_tri_oKO"));
+    rK=(double*)(lmp->memory->srealloc(rK, (nTriMax+1)*sizeof(double), "stl_tri_rK"));
+    Area=(double*)(lmp->memory->srealloc(Area, (nTriMax+1)*sizeof(double), "stl_tri_Area"));
+    wear=(double*)(lmp->memory->srealloc(wear, (nTriMax+1)*sizeof(double), "stl_tri_wear"));
+    wear_step=(double*)(lmp->memory->srealloc(wear_step, (nTriMax+1)*sizeof(double), "stl_tri_wear_step"));
+    f_tri=(double**)(lmp->memory->grow_2d_double_array(f_tri,(nTriMax+1),3, "stl_tri_f_tri"));
+    fn_fshear=(double**)(lmp->memory->grow_2d_double_array(fn_fshear,(nTriMax+1),3,"stl_tri_fn_fshear"));
+    neighfaces=(int**)(lmp->memory->grow_2d_int_array(neighfaces,(nTriMax+1), 3, "stl_tri_neighfaces"));
+    contactInactive=(int*)(lmp->memory->srealloc(contactInactive, (nTriMax+1)*sizeof(int), "stl_tri_contactActive"));
 
-    for (int i=0;i<nTriMax;i++) {
+    for (int i=0;i<(nTriMax+1);i++) {
         f_tri[i][0]=0.;f_tri[i][2]=0.;f_tri[i][2]=0.;
         fn_fshear[i][0]=0.;fn_fshear[i][1]=0.;fn_fshear[i][2]=0.;
         wear[i] = 0.;
@@ -135,7 +139,7 @@ void STLtri::grow_arrays()
 void STLtri::initConveyor()
 {
     conveyor=1;
-    if(v_node==NULL) v_node=(double***)(lmp->memory->grow_3d_double_array(v_node,nTriMax, 3 , 3, "stl_tri_v_node"));
+    if(v_node==NULL) v_node=(double***)(lmp->memory->grow_3d_double_array(v_node,(nTriMax+1), 3 , 3, "stl_tri_v_node"));
     double vtri[3];
     double tmp[3];
     double scp;
@@ -171,7 +175,7 @@ void STLtri::initMove(double skinSafety)
 
     xvf_len=nTri*VECPERTRI;
 
-    if(v_node==NULL) v_node=(double***)(lmp->memory->grow_3d_double_array(v_node,nTriMax, 3 , 3, "stl_tri_v_node"));
+    if(v_node==NULL) v_node=(double***)(lmp->memory->grow_3d_double_array(v_node,(nTriMax+1), 3 , 3, "stl_tri_v_node"));
     if(x==NULL) x = (double**)(lmp->memory->srealloc(x,xvf_lenMax*sizeof(double *),"stl_tri:x"));
     if(v==NULL) v = (double**)(lmp->memory->grow_2d_double_array(v, xvf_lenMax, 3, "stl_tri:v"));
 
@@ -287,10 +291,13 @@ void STLtri::unpack_restart()
 void STLtri::getTriBoundBox(int iTri, double *xmin, double *xmax,double delta)
 {
     
+    xmin[0] = xmin[1] = xmin[2] = +BIG;
+    xmax[0] = xmax[1] = xmax[2] = -BIG;
+
     for(int j=0;j<3;j++)
     {
-      xmin[j]=fmin(node[iTri][0][j],fmin(node[iTri][1][j],node[iTri][2][j]))-delta;
-      xmax[j]=fmax(node[iTri][0][j],fmax(node[iTri][1][j],node[iTri][2][j]))+delta;
+      xmin[j] = MathExtra::min(node[iTri][0][j], MathExtra::min(node[iTri][1][j],node[iTri][2][j])) - delta;
+      xmax[j] = MathExtra::max(node[iTri][0][j], MathExtra::max(node[iTri][1][j],node[iTri][2][j])) + delta;
     }
 }
 

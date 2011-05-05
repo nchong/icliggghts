@@ -85,7 +85,7 @@ FixParticledistributionDiscrete::FixParticledistributionDiscrete(LAMMPS *lmp, in
   //normalize distribution -
   double weightsum=0;
   for(int i=0;i<ntemplates;i++) weightsum+=distweight[i];
-  if(fabs(weightsum-1.)>0.00001)error->warning("particledistribution/discrete: sum of distribution weights != 1, normalizing distribution");
+  if(comm->me==0 && fabs(weightsum-1.) > 0.00001) error->warning("particledistribution/discrete: sum of distribution weights != 1, normalizing distribution");
   for(int i=0;i<ntemplates;i++) distweight[i]/=weightsum;
 
   if(comm->me==0&&screen){
@@ -182,9 +182,9 @@ int FixParticledistributionDiscrete::random_init(int ntotal)
     ninserted=0;
     for(int i=0;i<ntemplates;i++) parttogen[i]=static_cast<int>(static_cast<double>(ninsert)*distweight[i]+random->uniform());
 
-    int ntotal_new=0;
-    for(int i=0;i<ntemplates;i++) ntotal_new+=parttogen[i];
-    return ntotal_new;
+    ninsert=0;
+    for(int i=0;i<ntemplates;i++) ninsert+=parttogen[i];
+    return ninsert;
 }
 
 /* ----------------------------------------------------------------------*/

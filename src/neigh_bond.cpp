@@ -65,17 +65,18 @@ void Neighbor::bond_all()
         bondlist[nbondlist][0] = i;
         bondlist[nbondlist][1] = atom1;
         bondlist[nbondlist][2] = bond_type[i][m];
-        bondlist[nbondlist][3] = 0;
-        if(n_bondhist) {
+        bondlist[nbondlist][3] = 0; 
+        if(n_bondhist) { 
             for(int j = 0; j < n_bondhist; j++)
             {
                 bondhistlist[nbondlist][j] = bond_hist[i][m][j];
-                //fprintf(screen,"setting hist to %f\n",bond_hist[i][m][j]);
+                
             }
         }
         nbondlist++;
       }
     }
+
 }
 
 /* ---------------------------------------------------------------------- */

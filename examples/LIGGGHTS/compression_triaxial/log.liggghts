@@ -1,0 +1,347 @@
+LIGGGHTS MASTER-1.2 based on LAMMPS 10 Mar 2010
+#Undrained triaxial compression test by Tong SHAN, tshan@ust.hk
+#Particle insertion by pour dev packing
+
+atom_style	granular
+atom_modify	map array
+boundary	m m m
+newton		off
+echo		both
+
+communicate	single vel yes
+#processors	2 1 1
+
+units		si
+
+region		reg block -0.05 0.05 -0.05 0.05 0. 0.1 units box
+create_box	2 reg
+Created orthogonal box = (-0.05 -0.05 0) to (0.05 0.05 0.1)
+  1 by 1 by 1 processor grid
+
+neighbor	0.001 bin
+neigh_modify	delay 0
+
+
+#Material properties required for new pair styles
+
+fix 		m1 all property/global youngsModulus peratomtype 7e10 7e11
+#E=70GPa units Pa
+fix 		m2 all property/global poissonsRatio peratomtype 0.25 0.25
+fix 		m3 all property/global coefficientRestitution peratomtypepair 2 0.2 0.2 0.2 0.2
+fix 		m4 all property/global coefficientFriction peratomtypepair 2 0.2 0.0 0.0 0.0
+
+#New pair style
+pair_style 	gran/hertz/history 1 0  #Hertzian without cohesion
+pair_coeff	* *
+
+
+timestep	0.0000005
+
+fix 		ts_check all check/timestep/gran 1000 0.2 0.2
+
+#distributions for insertion
+fix		pts1 all particletemplate/sphere 1 atom_type 1 density constant 2500 radius constant 0.0025
+#fix		pts2 all particletemplate/sphere 1 atom_type 1 density constant 2500 radius constant 0.003
+#fix		pdd1 all particledistribution/discrete 1.  2 pts1 0.3 pts2 0.7
+fix		pdd1 all particledistribution/discrete 1.  1 pts1 1.
+
+#input the stressanalysis wall 
+fix		topwall all mesh/gran/stressanalysis topwall.stl   2 1. 0. 0. 0. 0. 0. 0.  
+# ======
+#topwall.stl:
+solid Mesh
+facet normal 0.000000 0.000000 -1.000000
+outer loop
+vertex -0.050000 -0.0500000 0.10000
+vertex -0.050000  0.0500000 0.100000
+vertex  0.050000  0.0500000 0.100000
+endloop
+endfacet
+facet normal 0.000000 0.000000 -1.000000
+outer loop
+vertex 0.050000 -0.0500000 0.10000
+vertex -0.050000 -0.0500000 0.10000
+vertex  0.050000  0.0500000 0.10000
+endloop
+endfacet
+endsolid Mesh
+#=====
+fix		bottomwall all mesh/gran/stressanalysis bottomwall.stl   2 1. 0. 0. 0. 0. 0. 0.
+# ======
+#bottomwall.stl:
+solid Mesh
+facet normal 0.000000 0.000000 1.000000
+outer loop
+vertex -0.050000 -0.050000 0.00000
+vertex -0.050000  0.0500000 0.00000
+vertex  0.050000  0.0500000 0.00000
+endloop
+endfacet
+facet normal 0.000000 0.000000 1.000000
+outer loop
+vertex 0.050000 -0.0500000 0.00000
+vertex -0.050000 -0.0500000 0.00000
+vertex  0.050000  0.0500000 0.00000
+endloop
+endfacet
+endsolid Mesh
+#=====
+fix		leftwall all mesh/gran/stressanalysis leftwall.stl   2 1. 0. 0. 0. 0. 0. 0.  
+# ======
+#leftwall.stl:
+solid Mesh
+facet normal 0.000000 1.000000 0.000000
+outer loop
+vertex -0.050000 -0.050000 0.00000
+vertex -0.050000  -0.050000 0.100000
+vertex  0.050000  -0.050000 0.0000
+endloop
+endfacet
+facet normal 0.000000 1.000000 0.000000
+outer loop
+vertex 0.050000 -0.050000 0.100000
+vertex -0.050000  -0.050000 0.100000
+vertex  0.050000  -0.050000 0.0000
+endloop
+endfacet
+endsolid Mesh
+#=====
+fix		rightwall all mesh/gran/stressanalysis rightwall.stl   2 1. 0. 0. 0. 0. 0. 0.
+# ======
+#rightwall.stl:
+solid Mesh
+facet normal 0.000000 -1.000000 0.000000
+outer loop
+vertex -0.0500000 0.050000 0.000
+vertex -0.0500000  0.050000 0.100000
+vertex  0.0500000  0.050000 0.000
+endloop
+endfacet
+facet normal 0.000000 -1.000000 0.000000
+outer loop
+vertex 0.050000 0.050000 0.100000
+vertex -0.050000  0.050000 0.100000
+vertex  0.050000  0.050000 0.000
+endloop
+endfacet
+endsolid Mesh
+#=====
+fix		frontwall all mesh/gran/stressanalysis frontwall.stl   2 1. 0. 0. 0. 0. 0. 0.  
+# ======
+#leftwall.stl:
+solid Mesh
+facet normal -1.000000 0.000000 0.000000
+outer loop
+vertex 0.050000 -0.050000 0.000
+vertex 0.050000  -0.050000 0.1000
+vertex  0.050000  0.050000 0.000
+endloop
+endfacet
+facet normal -1.000000 0.000000 0.000000
+outer loop
+vertex 0.050000 0.050000 0.10000
+vertex 0.050000  -0.050000 0.10000
+vertex  0.050000  0.050000 0.000
+endloop
+endfacet
+endsolid Mesh
+#=====
+fix		backwall all mesh/gran/stressanalysis backwall.stl   2 1. 0. 0. 0. 0. 0. 0.
+# ======
+#rightwall.stl:
+solid Mesh
+facet normal 1.000000 0.000000 0.000000
+outer loop
+vertex -0.050000 -0.050000 0.000
+vertex -0.050000  -0.050000 0.10000
+vertex  -0.050000  0.050000 0.000
+endloop
+endfacet
+facet normal 1.000000 0.000000 0.000000
+outer loop
+vertex -0.050000 0.050000 0.10000
+vertex -0.050000  -0.050000 0.10000
+vertex  -0.050000  0.050000 0.000
+endloop
+endfacet
+endsolid Mesh
+#=====
+fix		wall all wall/gran/hertz/history 0 0 mesh/gran 6 topwall bottomwall leftwall rightwall frontwall backwall
+
+#parameters for gradually growing particle diameter
+variable	alphastart equal 0.28
+variable	alphatarget equal 0.49 #e=?
+variable	growts equal 400000
+variable	growevery equal 1000
+variable	relaxts equal 100000
+
+#region and insertion
+group		nve_group region reg
+0 atoms in group nve_group
+fix		ins nve_group pour/dev/packing 1 distributiontemplate pdd1 vol ${alphastart} 1000 region reg
+fix		ins nve_group pour/dev/packing 1 distributiontemplate pdd1 vol 0.28 1000 region reg
+Particle packing insertion: trying 4278.084870 particles once
+
+#apply nve integration to all particles that are inserted as single particles
+fix		integr nve_group nve/sphere
+
+#output settings, include total thermal energy
+compute		1 all erotate/sphere
+thermo_style	custom step atoms ke c_1 vol
+thermo		10000
+thermo_modify	lost ignore norm no
+compute_modify	thermo_temp dynamic yes
+
+#insert the first particles and dump
+dump 		I_stl all mesh/gran/VTK 10000 post/Stress_file-*.vtk stress
+run		1
+Memory usage per processor = 11.9532 Mbytes
+Step Atoms KinEng 1 Volume 
+       0        0           -0            0        0.001 
+       1     4278            0            0        0.001 
+Loop time of 2.87356 on 1 procs for 1 steps with 4278 atoms
+
+Pair  time (%) = 0.000130892 (0.00455504)
+Neigh time (%) = 0.0046072 (0.160331)
+Comm  time (%) = 3.29018e-05 (0.00114498)
+Outpt time (%) = 5.60284e-05 (0.00194979)
+Other time (%) = 2.86873 (99.832)
+
+Nlocal:    4278 ave 4278 max 4278 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    6665 ave 6665 max 6665 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 6665
+Ave neighs/atom = 1.55797
+Neighbor list builds = 1
+Dangerous builds = 0
+dump		dmp all custom 10000 post/dump.tricomp id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius 
+unfix		ins
+
+#calculate grow rate
+variable	Rgrowrate equal (${alphatarget}/${alphastart})^(${growevery}/(3.*${growts}))
+variable	Rgrowrate equal (0.49/${alphastart})^(${growevery}/(3.*${growts}))
+variable	Rgrowrate equal (0.49/0.28)^(${growevery}/(3.*${growts}))
+variable	Rgrowrate equal (0.49/0.28)^(1000/(3.*${growts}))
+variable	Rgrowrate equal (0.49/0.28)^(1000/(3.*400000))
+print		"The radius grow rate is ${Rgrowrate}"
+The radius grow rate is 1.000466455 
+
+#do the diameter grow
+compute 	rad all property/atom radius
+
+variable	d_grown atom ${Rgrowrate}*2.*c_rad
+variable	d_grown atom 1.000466455*2.*c_rad
+fix		grow all adapt ${growevery} atom diameter d_grown
+fix		grow all adapt 1000 atom diameter d_grown
+neigh_modify	every ${growevery} check no
+neigh_modify	every 1000 check no
+
+#run
+run		${growts}
+run		400000
+Memory usage per processor = 12.4273 Mbytes
+Step Atoms KinEng 1 Volume 
+       1     4278            0            0        0.001 
+   10000     4278 4.4157227e-05 4.1529224e-07        0.001 
+   20000     4278 9.9671559e-05  1.42753e-06        0.001 
+   30000     4278 0.00016816618 4.6657602e-06        0.001 
+   40000     4278 0.00025442397 8.4641568e-06        0.001 
+   50000     4278 0.00033439295 1.4699487e-05        0.001 
+   60000     4278 0.00042142658 2.2822393e-05        0.001 
+   70000     4278 0.00051081184 3.1458235e-05        0.001 
+   80000     4278 0.00060436457 4.3390952e-05        0.001 
+   90000     4278 0.0007098379 5.6670455e-05        0.001 
+  100000     4278 0.00078341721 7.3877242e-05        0.001 
+  110000     4278 0.00089043504 9.109818e-05        0.001 
+  120000     4278 0.00095772939 0.00010984355        0.001 
+  130000     4278 0.0010250824 0.00012645262        0.001 
+  140000     4278 0.0010988132 0.00014698522        0.001 
+  150000     4278 0.0011535009 0.00016831811        0.001 
+  160000     4278 0.0012110218 0.00018724069        0.001 
+  170000     4278  0.001273343 0.00020905082        0.001 
+  180000     4278 0.0013506513 0.00023221759        0.001 
+  190000     4278 0.0014189503 0.00025642305        0.001 
+  200000     4278 0.0014242345 0.00027350891        0.001 
+  210000     4278 0.0015127489 0.00030177933        0.001 
+  220000     4278 0.0015775301 0.00031902883        0.001 
+  230000     4278 0.0015954606 0.00034354065        0.001 
+  240000     4278 0.0016298016 0.0003676735        0.001 
+  250000     4278 0.0017011843 0.00039076253        0.001 
+  260000     4278 0.0017216908 0.00042144518        0.001 
+  270000     4278 0.0017587638 0.00043412214        0.001 
+  280000     4278 0.0017897084 0.00045932098        0.001 
+  290000     4278 0.0018480324 0.00048426467        0.001 
+  300000     4278 0.0019048237  0.000514035        0.001 
+  310000     4278 0.0019243308 0.00052784546        0.001 
+  320000     4278 0.0019868749  0.000545904        0.001 
+  330000     4278 0.0020123486 0.00056006616        0.001 
+  340000     4278 0.0020510591 0.00057229877        0.001 
+  350000     4278 0.0021457375 0.00061331291        0.001 
+  360000     4278 0.0021703419 0.00063915012        0.001 
+  370000     4278 0.0023029812 0.00066563063        0.001 
+  380000     4278 0.0022877312 0.0006835251        0.001 
+  390000     4278 0.0023452349 0.00071110062        0.001 
+  400000     4278  0.002408779 0.00074935451        0.001 
+  400001     4278 0.0024220437 0.00074884109        0.001 
+Loop time of 177.461 on 1 procs for 400000 steps with 4278 atoms
+
+Pair  time (%) = 67.5769 (38.0798)
+Neigh time (%) = 1.61617 (0.910718)
+Comm  time (%) = 0.341967 (0.1927)
+Outpt time (%) = 0.961237 (0.54166)
+Other time (%) = 106.965 (60.2751)
+
+Nlocal:    4278 ave 4278 max 4278 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    14525 ave 14525 max 14525 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 14525
+Ave neighs/atom = 3.39528
+Neighbor list builds = 400
+Dangerous builds = 0
+
+#let the packing relax
+unfix		grow
+neigh_modify	check yes
+run		${relaxts}
+run		100000
+Memory usage per processor = 13.3908 Mbytes
+Step Atoms KinEng 1 Volume 
+  400001     4278 0.0024220437 0.00074884109        0.001 
+  410000     4278 0.0014427267 0.00065384944        0.001 
+  420000     4278 0.00099388981 0.00055728461        0.001 
+  430000     4278 0.00072382971 0.00047828102        0.001 
+  440000     4278 0.0005659494 0.00041820937        0.001 
+  450000     4278 0.00046800487 0.00037445479        0.001 
+  460000     4278 0.00038511454 0.00033407896        0.001 
+  470000     4278 0.00033310547 0.00030451467        0.001 
+  480000     4278 0.00028845013 0.00027452137        0.001 
+  490000     4278 0.00025632426 0.00025329391        0.001 
+  500000     4278 0.00023088971 0.00023329339        0.001 
+  500001     4278 0.00023088791 0.0002332926        0.001 
+Loop time of 52.6697 on 1 procs for 100000 steps with 4278 atoms
+
+Pair  time (%) = 24.1342 (45.8217)
+Neigh time (%) = 0.0473332 (0.0898681)
+Comm  time (%) = 0.025466 (0.0483503)
+Outpt time (%) = 0.247244 (0.469424)
+Other time (%) = 28.2155 (53.5706)
+
+Nlocal:    4278 ave 4278 max 4278 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    14102 ave 14102 max 14102 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 14102
+Ave neighs/atom = 3.2964
+Neighbor list builds = 10
+Dangerous builds = 0

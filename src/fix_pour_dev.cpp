@@ -248,6 +248,7 @@ FixPourDev::FixPourDev(LAMMPS *lmp, int narg, char **arg) :
 
   force_reneighbor = 1;
   next_reneighbor = update->ntimestep + 1;
+  lastexec = -1;
   nfirst = next_reneighbor;
   ninserted = 0;
 
@@ -429,17 +430,19 @@ void FixPourDev::pre_exchange()
   
   // just return if should not be called on this timestep
 
-  if (next_reneighbor != update->ntimestep) return;
+  if (next_reneighbor != update->ntimestep || lastexec == update->ntimestep) return;
 
-  // nnew = # to insert this timestep
+  lastexec = update->ntimestep;
 
-  int nnew = static_cast<int>(nper+random->uniform());
-  if (ninserted + nnew > ninsert) nnew = ninsert - ninserted;
+  // nbodies_new = # to insert this timestep
+
+  int nbodies_new = static_cast<int>(nper+random->uniform());
+  if (ninserted + nbodies_new > ninsert) nbodies_new = ninsert - ninserted;
 
   //init number of bodies to be inserted
-  nnew = fpdd->random_init(nnew);
+  nbodies_new = fpdd->random_init(nbodies_new);
 
-  if(nnew == 0)
+  if(nbodies_new == 0)
   {
       error->warning("Inserting no particle - void fraction or mass flow rate might be too low");
       return;
@@ -456,14 +459,14 @@ void FixPourDev::pre_exchange()
   }
 
   // ncount = # of my atoms that overlap the insertion region
-  // nprevious = total of ncount across all procs
+  // nspheres_previous = total of ncount across all procs
 
   int ncount = 0;
   for (i = 0; i < atom->nlocal; i++)
     if (overlap(i)) ncount++;
 
-  int nprevious;
-  MPI_Allreduce(&ncount,&nprevious,1,MPI_INT,MPI_SUM,world);
+  int nspheres_previous;
+  MPI_Allreduce(&ncount,&nspheres_previous,1,MPI_INT,MPI_SUM,world);
 
   // xmine is for my atoms
   // xnear is for atoms from all procs + atoms to be inserted
@@ -471,8 +474,8 @@ void FixPourDev::pre_exchange()
   double **xmine =
     memory->create_2d_double_array(ncount,7,"fix_pour_dev:xmine");
   double **xnear =
-    memory->create_2d_double_array(nprevious+nnew*particles_per_insertion(),7,"fix_pour_dev:xnear");
-  int nnear = nprevious;
+    memory->create_2d_double_array(nspheres_previous+nbodies_new*particles_per_insertion(),7,"fix_pour_dev:xnear");
+  int nspheres_near = nspheres_previous;
 
   // setup for allgatherv
 
@@ -517,15 +520,15 @@ void FixPourDev::pre_exchange()
   double coord[3],radtmp,delx,dely,delz,rsq,radsum,rn,h,tmp,vzrel;
 
   int attempt = 0;
-  int max = nnew * maxattempt;
+  int max = nbodies_new * maxattempt;
 
-  int ntotal = nprevious+nnew;
+  int nspheres_new = nspheres_previous+nbodies_new;
 
   vzrel=vz-rate;
 
-  if(hi_current-lo_current<3.*shift_randompos()) error->all("Fix pour insertion volume is not tall enough for largest insertion, make it at least 3 particle radii tall.");
+  if(hi_current-lo_current < 3.*shift_randompos()) error->all("Fix pour insertion volume is not tall enough for largest insertion, make it at least 3 particle radii tall.");
 
-  while (nnear < ntotal) {
+  while (nspheres_near < nspheres_new) {
 
     //randomize particle properties
     fpdd->randomize();
@@ -542,7 +545,7 @@ void FixPourDev::pre_exchange()
     while (attempt < max) {
           attempt++;
           xyz_random(h,coord);
-          if(isInExempt = isInExemptRegion(coord) == 1) break; 
+          if(isInExempt = isInExemptRegion(coord) >= 1) break; 
 
           if(!check_ol_flag)
           {
@@ -550,26 +553,26 @@ void FixPourDev::pre_exchange()
               break;
           }
 
-          for (i = 0; i < nnear; i++) {
+          for (i = 0; i < nspheres_near; i++) {
             if(overlaps_xnear_i(coord,xnear,i)) break; 
           }
-          if (i == nnear) {
+          if (i == nspheres_near) {
             success = 1;
             break;
           }
     }
 
     if (success) {
-      nnear=insert_in_xnear(xnear,nnear,coord); 
+      nspheres_near=insert_in_xnear(xnear,nspheres_near,coord); 
       //if more that 1 particle per body added, add number of particles -1
-      ntotal+=(fpdd->pti->nspheres-1);
+      nspheres_new+=(fpdd->pti->nspheres-1);
       ninserted ++;
     } else if(attempt == max)break; 
   }
 
   // warn if not all insertions were performed
 
-  if (nnear - nprevious < nnew && me == 0)
+  if (nspheres_near - nspheres_previous < nspheres_new && me == 0)
     error->warning("Less insertions than requested, the particle size distribution you wish may not be pictured");
 
   //show comparison of ideal massflowrate and calculated one 
@@ -603,7 +606,7 @@ void FixPourDev::pre_exchange()
   int nfix = modify->nfix;
   Fix **fix = modify->fix;
 
-  for (i = nprevious; i < nnear; i++) {
+  for (i = nspheres_previous; i < nspheres_near; i++) {
     coord[0] = xnear[i][0];
     coord[1] = xnear[i][1];
     coord[2] = xnear[i][2];
@@ -653,7 +656,7 @@ void FixPourDev::pre_exchange()
 
   if (atom->tag_enable) {
     atom->tag_extend();
-    atom->natoms += nnear - nprevious;
+    atom->natoms += nspheres_near - nspheres_previous;
     if (atom->map_style) {
       atom->nghost = 0;
       atom->map_init();
@@ -769,24 +772,24 @@ inline bool FixPourDev::overlaps_xnear_i(double *coord,double **xnear,int i)
    insert particle in xnear list
 ------------------------------------------------------------------------- */
 
-inline int FixPourDev::insert_in_xnear(double **xnear,int nnear,double *coord)
+inline int FixPourDev::insert_in_xnear(double **xnear,int nspheres_near,double *coord)
 {
     
     for(int j=0;j<fpdd->pti->nspheres;j++)
     {
-      xnear[nnear][0] = coord[0] + fpdd->pti->x_ins[j][0];
-      xnear[nnear][1] = coord[1] + fpdd->pti->x_ins[j][1];
-      xnear[nnear][2] = coord[2] + fpdd->pti->x_ins[j][2];
-      xnear[nnear][3] = fpdd->pti->radius_ins[j];
-      xnear[nnear][4] = fpdd->pti->density_ins;
-      xnear[nnear][5] = static_cast<double>(nBody);
-      xnear[nnear][6] = static_cast<double>(fpdd->pti->atom_type);
+      xnear[nspheres_near][0] = coord[0] + fpdd->pti->x_ins[j][0];
+      xnear[nspheres_near][1] = coord[1] + fpdd->pti->x_ins[j][1];
+      xnear[nspheres_near][2] = coord[2] + fpdd->pti->x_ins[j][2];
+      xnear[nspheres_near][3] = fpdd->pti->radius_ins[j];
+      xnear[nspheres_near][4] = fpdd->pti->density_ins;
+      xnear[nspheres_near][5] = static_cast<double>(nBody);
+      xnear[nspheres_near][6] = static_cast<double>(fpdd->pti->atom_type);
       
-      nnear++;
+      nspheres_near++;
     }
     nBody++;
     mass_ins+=fpdd->pti->mass_ins;
-    return nnear;
+    return nspheres_near;
 }
 
 /* ----------------------------------------------------------------------

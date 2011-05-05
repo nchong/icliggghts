@@ -42,6 +42,7 @@ class Modify : protected Pointers {
   ~Modify();
   void init();
   void setup(int);
+  void setup_pre_exchange();
   void initial_integrate(int);
   void post_integrate();
   void pre_decide();
@@ -79,6 +80,7 @@ class Modify : protected Pointers {
   class FixPropertyPerAtom* add_fix_property_peratom(int narg,char **arg);
   int find_fix_property(const char *,const char *,const char *,int ,int );
   int find_fix_property(const char *,const char *,const char *,int ,int,bool );
+  class FixScalarTransportEquation* find_fix_scalar_transport_equation(const char *equation_id);
 
   void add_compute(int, char **);
   void modify_compute(int, char **);

@@ -56,6 +56,7 @@ FixRigid::FixRigid(LAMMPS *lmp, int narg, char **arg) :
   rigid_flag = 1;
   virial_flag = 1;
   create_attribute = 1;
+  just_created = 0; 
 
   // perform initial allocation of atom-based arrays
   // register with Atom class
@@ -376,6 +377,7 @@ FixRigid::FixRigid(LAMMPS *lmp, int narg, char **arg) :
   if (comm->me == 0) {
     if (screen) fprintf(screen,"%d rigid bodies with %d atoms\n",nbody,nsum);
     if (logfile) fprintf(logfile,"%d rigid bodies with %d atoms\n",nbody,nsum);
+
   }
 }
 
@@ -1170,6 +1172,7 @@ void FixRigid::final_integrate()
     for (i = 0; i < 6; i++) sum[ibody][i] = 0.0;
 
   for (i = 0; i < nlocal; i++) {
+    
     if (body[i] < 0) continue;
     ibody = body[i];
 
@@ -1220,6 +1223,7 @@ void FixRigid::final_integrate()
   MPI_Allreduce(sum[0],all[0],6*nbody,MPI_DOUBLE,MPI_SUM,world);
 
   for (ibody = 0; ibody < nbody; ibody++) {
+    
     fcm[ibody][0] = all[ibody][0];
     fcm[ibody][1] = all[ibody][1];
     fcm[ibody][2] = all[ibody][2];

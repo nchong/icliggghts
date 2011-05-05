@@ -152,10 +152,6 @@ void Modify::init()
 {
   int i,j;
 
-  // delete storage of restart info since it is not valid after 1st run
-
-  restart_deallocate();
-
   // create lists of fixes to call at each stage of run
 
   list_init(INITIAL_INTEGRATE,n_initial_integrate,list_initial_integrate);
@@ -248,6 +244,9 @@ void Modify::init()
   MPI_Allreduce(&check,&checkall,1,MPI_INT,MPI_SUM,world);
   if (comm->me == 0 && checkall)
     error->warning("One or more atoms are time integrated more than once");
+
+  // delete storage of restart info since it is not valid after 1st run
+  restart_deallocate();
 }
 
 /* ----------------------------------------------------------------------
@@ -259,21 +258,33 @@ void Modify::setup(int vflag)
   
   int nlocal = atom->nlocal;
   int *mask = atom->mask;
+
   for (int i = 0; i < nfix; i++)
   {
-     if (fix[i]->just_created && fix[i]->create_attribute)
+     if (!fix[i]->recent_restart && fix[i]->just_created && fix[i]->create_attribute)
      {
          fix[i]->just_created = 0;
          for(int j = 0; j < nlocal; j++)
            if(mask[j] & fix[i]->groupbit) fix[i]->set_arrays(j);
      }
-
+     else if(fix[i]->just_created) fix[i]->just_created = 0;
+     fix[i]->recent_restart = 0;
   }
 
   if (update->whichflag == 1)
     for (int i = 0; i < nfix; i++) fix[i]->setup(vflag);
   else if (update->whichflag == 2)
     for (int i = 0; i < nfix; i++) fix[i]->min_setup(vflag);
+}
+
+/* ----------------------------------------------------------------------
+   setup pre_exchange call, only for fixes that define pre_exchange
+------------------------------------------------------------------------- */
+
+void Modify::setup_pre_exchange()
+{
+  for (int i = 0; i < n_pre_exchange; i++)
+    fix[list_pre_exchange[i]]->setup_pre_exchange();
 }
 
 /* ----------------------------------------------------------------------
@@ -547,6 +558,7 @@ int Modify::min_dof()
 
 void Modify::add_fix(int narg, char **arg)
 {
+  
   if (domain->box_exist == 0)
     error->all("Fix command before simulation box is defined");
   if (narg < 3) error->all("Illegal fix command");
@@ -577,6 +589,8 @@ void Modify::add_fix(int narg, char **arg)
       error->all("Replacing a fix, but new style != old style");
     if (fix[ifix]->igroup != igroup && comm->me == 0)
       error->warning("Replacing a fix, but new group != old group");
+    
+    fix[ifix]->pre_delete();
     delete fix[ifix];
     atom->update_callback(ifix);
     fix[ifix] = NULL;
@@ -616,6 +630,7 @@ void Modify::add_fix(int narg, char **arg)
     if (strcmp(id_restart_global[i],fix[ifix]->id) == 0 &&
 	strcmp(style_restart_global[i],fix[ifix]->style) == 0) {
       fix[ifix]->restart(state_restart_global[i]);
+      fix[ifix]->recent_restart = 1; 
       if (comm->me == 0) {
 	char *str = (char *) ("Resetting global state of Fix %s Style %s "
 			      "from restart file info\n");
@@ -632,6 +647,7 @@ void Modify::add_fix(int narg, char **arg)
 	strcmp(style_restart_peratom[i],fix[ifix]->style) == 0) {
       for (int j = 0; j < atom->nlocal; j++)
 	fix[ifix]->unpack_restart(j,index_restart_peratom[i]);
+	fix[ifix]->recent_restart = 1; 
       if (comm->me == 0) {
 	char *str = (char *) ("Resetting per-atom state of Fix %s Style %s "
 		     "from restart file info\n");
@@ -639,6 +655,8 @@ void Modify::add_fix(int narg, char **arg)
 	if (logfile) fprintf(logfile,str,fix[ifix]->id,fix[ifix]->style);
       }
     }
+
+  fix[ifix]->post_create(); 
 
 }
 
@@ -669,6 +687,9 @@ void Modify::delete_fix(const char *id)
 {
   int ifix = find_fix(id);
   if (ifix < 0) error->all("Could not find fix ID to delete");
+
+  fix[ifix]->pre_delete();
+
   delete fix[ifix];
   atom->update_callback(ifix);
 
@@ -709,6 +730,22 @@ FixPropertyPerAtom* Modify::add_fix_property_peratom(int narg,char **arg)
     if(narg < 5) error->all("Not enough arguments to add a fix property");
     add_fix(narg,arg);
     return static_cast<FixPropertyPerAtom*>(fix[find_fix_property(arg[3],"property/peratom",arg[4],0,0)]);
+}
+
+/* ----------------------------------------------------------------------
+   
+   find a fix scalar transport equation
+------------------------------------------------------------------------- */
+
+FixScalarTransportEquation* Modify::find_fix_scalar_transport_equation(const char *equation_id)
+{
+    for(int ifix = 0; ifix < nfix; ifix++)
+      if(strcmp(fix[ifix]->style,"transportequation/scalar")==0)
+      {
+          FixScalarTransportEquation *fix_ste = static_cast<FixScalarTransportEquation*>(fix[ifix]);
+          if(fix_ste->match_equation_id(equation_id)) return fix_ste;
+      }
+    return NULL;
 }
 
 /* ----------------------------------------------------------------------
@@ -790,7 +827,7 @@ int Modify::find_fix_property(const char *varname,const char *style,const char *
                   }
                   else
                   {
-                      if((fppg->nvalues<len1)||((svm==2) && (fppg->size_array_rows<len2)))
+                      if((fppg->nvalues<len1)||((svm==2) && (fppg->size_array_cols<len2)))
                       {
                           if(errflag)
                           {
@@ -859,6 +896,8 @@ void Modify::add_compute(int narg, char **arg)
   else error->all("Invalid compute style");
 
   ncompute++;
+
+  compute[ncompute-1]->post_create(); 
 }
 
 /* ----------------------------------------------------------------------
@@ -1094,6 +1133,7 @@ int Modify::read_restart(FILE *fp)
 
 void Modify::restart_deallocate()
 {
+
   if (nfix_restart_global) {
     for (int i = 0; i < nfix_restart_global; i++) {
       delete [] id_restart_global[i];

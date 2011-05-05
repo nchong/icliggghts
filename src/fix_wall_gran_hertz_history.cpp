@@ -36,8 +36,9 @@ See the README file in the top-level LAMMPS directory.
 #include "respa.h"
 #include "memory.h"
 #include "error.h"
-#include "mech_param_gran.h"
 #include "fix_rigid.h"
+#include "fix_propertyGlobal.h"
+#include "mech_param_gran.h"
 
 using namespace LAMMPS_NS;
 
@@ -46,54 +47,47 @@ using namespace LAMMPS_NS;
 #define MIN(A,B) ((A) < (B)) ? (A) : (B)
 #define MAX(A,B) ((A) > (B)) ? (A) : (B)
 
-enum{MESHGRAN,XPLANE,YPLANE,ZPLANE,ZCYLINDER};
-enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY};
-
 /* ---------------------------------------------------------------------- */
 
 FixWallGranHertzHistory::FixWallGranHertzHistory(LAMMPS *lmp, int narg, char **arg) :
   FixWallGranHookeHistory(lmp, narg, arg)
 {
-  initSubstyle();
+
 }
 
 /* ---------------------------------------------------------------------- */
 
-int FixWallGranHertzHistory::setmask()
+void FixWallGranHertzHistory::init_substyle()
 {
-  int mask = 0;
-  mask |= POST_FORCE;
-  mask |= POST_FORCE_RESPA;
-  return mask;
-}
+  //get material properties
+  Yeff = ((PairGranHertzHistory*)pairgran)->Yeff;
+  Geff = ((PairGranHertzHistory*)pairgran)->Geff;
+  betaeff = ((PairGranHertzHistory*)pairgran)->betaeff;
+  veff = ((PairGranHertzHistory*)pairgran)->veff;
+  cohEnergyDens = ((PairGranHertzHistory*)pairgran)->cohEnergyDens;
+  coeffRestLog = ((PairGranHertzHistory*)pairgran)->coeffRestLog;
+  coeffFrict = ((PairGranHertzHistory*)pairgran)->coeffFrict;
+  coeffRollFrict = ((PairGranHertzHistory*)pairgran)->coeffRollFrict;
 
-/* ---------------------------------------------------------------------- */
+  //need to check properties for rolling friction and cohesion energy density here
+  //since these models may not be active in the pair style
+  
+  FixPropertyGlobal *coeffRollFrict1, *cohEnergyDens1;
+  int max_type = pairgran->mpg->max_type();
+  if(rollingflag)
+    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type)]);
+  if(cohesionflag)
+    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type)]);
 
-void FixWallGranHertzHistory::init()
-{
-  dt = update->dt;
-
-  if (strcmp(update->integrate_style,"respa") == 0)
-    nlevels_respa = ((Respa *) update->integrate)->nlevels;
-
-  if ((wallstyle==MESHGRAN) && (fix_tri_neighlist==NULL)) registerTriNeighlist(1);
-
-  if (!force->pair_match("gran/hertz/history",0)) error->all("Fix wall/gran/hertz/history can only be used together with pair style gran/hertz/history");
-
-  mpg = static_cast<PairGranHertzHistory*>(force->pair)->getMatProp();
-
-  fr=NULL;
-  for(int ifix=0;ifix<modify->nfix;ifix++)
+  //pre-calculate parameters for possible contact material combinations
+  for(int i=1;i< max_type+1; i++)
   {
-      if(strncmp(modify->fix[ifix]->style,"rigid",5)==0) fr=static_cast<FixRigid*>(modify->fix[ifix]);
+      for(int j=1;j<max_type+1;j++)
+      {
+          if(rollingflag) coeffRollFrict[i][j] = coeffRollFrict1->compute_array(i-1,j-1);
+          if(cohesionflag) cohEnergyDens[i][j] = cohEnergyDens1->compute_array(i-1,j-1);
+      }
   }
-}
-
-void FixWallGranHertzHistory::initSubstyle()
-{
-  if(!(force->pair_match("gran/hertz/history",0))) error->all("Fix wall/gran/hertz/history can only be used together with pair style gran/hertz/history");
-
-  mpg = static_cast<PairGranHertzHistory*>(force->pair)->getMatProp();
 }
 
 /* ----------------------------------------------------------------------
@@ -103,27 +97,22 @@ void FixWallGranHertzHistory::initSubstyle()
 #include "pair_gran_defs.h"
 #undef LMP_GRAN_DEFS_DEFINE
 
-inline void FixWallGranHertzHistory::deriveContactModelParams(int &ip, double deltan, double &kn, double &kt, double &gamman, double &gammat, double &xmu)  
+inline void FixWallGranHertzHistory::deriveContactModelParams(int ip, double deltan,double meff_wall, double &kn, double &kt, double &gamman, double &gammat, double &xmu,double &rmu)  
 {
-
-    double meff_wall = atom->rmass[ip];
-    if(fr&&fr->body[ip]>=0)
-    {
-        meff_wall=fr->masstotal[fr->body[ip]];  
-    }
 
     double sqrtval = sqrt(reff_wall*deltan);
 
-    double Sn=2.*(mpg->Yeff[itype][atom_type_wall])*sqrtval;
-    double St=8.*(mpg->Geff[itype][atom_type_wall])*sqrtval;
+    double Sn=2.*(Yeff[itype][atom_type_wall])*sqrtval;
+    double St=8.*(Geff[itype][atom_type_wall])*sqrtval;
 
-    kn=4./3.*mpg->Yeff[itype][atom_type_wall]*sqrtval;
+    kn=4./3.*Yeff[itype][atom_type_wall]*sqrtval;
     kt=St;
 
-    gamman=-2.*sqrtFiveOverSix*mpg->betaeff[itype][atom_type_wall]*sqrt(Sn*meff_wall);
-    gammat=-2.*sqrtFiveOverSix*mpg->betaeff[itype][atom_type_wall]*sqrt(St*meff_wall);
+    gamman=-2.*sqrtFiveOverSix*betaeff[itype][atom_type_wall]*sqrt(Sn*meff_wall);
+    gammat=-2.*sqrtFiveOverSix*betaeff[itype][atom_type_wall]*sqrt(St*meff_wall);
 
-    xmu=mpg->coeffFrict[itype][atom_type_wall];
+    xmu=coeffFrict[itype][atom_type_wall];
+    if(rollingflag)rmu=coeffRollFrict[itype][atom_type_wall];
 
     if (dampflag == 0) gammat = 0.0;
 
@@ -136,4 +125,3 @@ inline void FixWallGranHertzHistory::deriveContactModelParams(int &ip, double de
 #define LMP_GRAN_DEFS_UNDEFINE
 #include "pair_gran_defs.h"
 #undef LMP_GRAN_DEFS_UNDEFINE
-

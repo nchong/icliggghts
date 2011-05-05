@@ -15,13 +15,12 @@
 #define LMP_NEIGHBOR_H
 
 #include "pointers.h"
-#include "fix_tri_neighlist.h"
 
 namespace LAMMPS_NS {
 
 class Neighbor : protected Pointers {
  friend class FixTriNeighlist;
-
+ 
  public:
   int style;                       // 0,1,2 = nsq, bin, multi
   int every;                       // build every this many steps
@@ -74,6 +73,8 @@ class Neighbor : protected Pointers {
   void set(int, char **);      // set neighbor style and skin distance
   void modify_params(int, char**);  // modify parameters that control builds
   double memory_usage();
+  int neigh_once(){return build_once;} 
+  int n_neighs(); 
 
  private:
   int me,nprocs;

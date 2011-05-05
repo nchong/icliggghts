@@ -31,95 +31,26 @@ FixStyle(wall/gran/hooke/history,FixWallGranHookeHistory)
 #ifndef LMP_FIX_WALL_GRAN_HOOKE_HISTORY_H
 #define LMP_FIX_WALL_GRAN_HOOKE_HISTORY_H
 
-#include "fix.h"
-
-enum{MESHGRAN_FWGHH,XPLANE_FWGHH,YPLANE_FWGHH,ZPLANE_FWGHH,ZCYLINDER_FWGHH};
-
-#define F_SHRINKAGE -0.000000001  
+#include "fix_wall_gran.h"
 
 namespace LAMMPS_NS {
 
-class FixWallGranHookeHistory : public Fix {
-  friend class FixTriNeighlist; 
-  friend class MechParamGran; 
-  friend class FixCheckTimestepGran; 
-  friend class FixConstrainMeshGran6DOF; 
-
+class FixWallGranHookeHistory : public FixWallGran {
  public:
   FixWallGranHookeHistory(class LAMMPS *, int, char **);
   ~FixWallGranHookeHistory();
-  virtual int setmask();
-  virtual void init();
-  void setup(int);
-  void post_force(int);
-  void post_force_respa(int, int, int);
-
-  double memory_usage();
-  void grow_arrays(int);
-  virtual void grow_arrays_maxtritouch(int); 
-  void copy_arrays(int, int);
-  void set_arrays(int);
-  int pack_exchange(int, double *);
-  int unpack_exchange(int, double *);
-  int pack_restart(int, double *);
-  void unpack_restart(int, int);
-  void write_restart(FILE *);
-  void restart(char *);      
-  int size_restart(int);
-  int maxsize_restart();
-  void reset_dt();
 
  protected:
-  int atom_type_wall;
-  double Temp_wall;
-  int wallstyle,pairstyle,wiggle,wshear,axis;
-  int dampflag,cohesionflag;
 
-  int nFixMeshGran;
-  class FixMeshGran** FixMeshGranList;
+  virtual void init_substyle();
+  void addHeatFlux(int, double, double area_ratio);
+  virtual void compute_force(int ip, double deltan, double rsq,double meff_wall, double dx, double dy, double dz,double *vwall,double *c_history,double area_ratio);
+  virtual void addCohesionForce(int &, double &, double &,double area_ratio);
+  virtual void deriveContactModelParams(int ip, double deltan,double meff_wall, double &kn, double &kt, double &gamman, double &gammat, double &xmu,double &rmu);
 
-  double lo,hi,cylradius;
-  double amplitude,period,omega,vshear;
-  double dt;
-  int nlevels_respa;
-  int time_origin;
+  int dampflag,cohesionflag,rollingflag;
+  double **Yeff,**Geff,**betaeff,**veff,**cohEnergyDens,**coeffRestLog,**coeffFrict,charVel,**coeffRollFrict;
 
-  //list of contact partners
-  int maxpartners; 
-  int *npartners;
-  int ***partner;
-
-  //shear history
-  int shearhistory;
-  double ***shear;
-
-  class FixRigid *fr;
-
-  class FixTriNeighlist* fix_tri_neighlist;
-
-  class MechParamGran *mpg;
-
-  class FixPropertyPerAtom *fppa_T;
-  class FixPropertyPerAtom *fppa_hf;
-  double *Temp_p;
-  double *heatflux;
-  const double *th_cond;
-  double const* const* deltan_ratio;
-
-  void init_heattransfer();
-  void addHeatFlux(int, double,double, int);
-  virtual void compute_force(int, double, double, double, double, double *, double *, double *, double *, double *, double, double, double *,
-                                  double, double, double, double, double);
-  virtual void addCohesionForce(int &, double &, double &);
-  virtual void deriveContactModelParams(int &, double , double &, double &, double &, double &, double &);
-  virtual void resetShearHistory(int,int);
-  virtual void initSubstyle();
-  void registerTriNeighlist(int);
-
-  void reset_wall_forces();
-  virtual int add_to_contact_list(int, int, int);
-  void shear_transition(int,int,int);
-  virtual void remove_from_contact_list(int, int, int);
 };
 
 }

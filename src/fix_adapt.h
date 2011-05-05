@@ -36,6 +36,8 @@ class FixAdapt : public Fix {
   FixAdapt(class LAMMPS *, int, char **);
   ~FixAdapt();
   int setmask();
+  void post_create();
+  void pre_delete();
   void init();
   void pre_force(int);
 

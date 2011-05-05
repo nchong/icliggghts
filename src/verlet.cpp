@@ -84,17 +84,21 @@ void Verlet::setup()
   // setup domain, communication and neighboring
   // acquire ghosts
   // build neighbor lists
-
+  
   atom->setup();
+  modify->setup_pre_exchange();
+  
   if (triclinic) domain->x2lamda(atom->nlocal);
   domain->pbc();
   domain->reset_box();
+  
   comm->setup();
   if (neighbor->style) neighbor->setup_bins();
   comm->exchange();
   if (atom->sortfreq > 0) atom->sort();
   comm->borders();
   if (triclinic) domain->lamda2x(atom->nlocal+atom->nghost);
+  
   neighbor->build();
   neighbor->ncalls = 0;
 
@@ -120,7 +124,9 @@ void Verlet::setup()
   if (force->newton) comm->reverse_comm();
 
   modify->setup(vflag);
+  
   output->setup(1);
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -179,7 +185,7 @@ void Verlet::setup_minimal(int flag)
 void Verlet::run(int n)
 {
   int nflag,ntimestep,sortflag;
-  
+
   int n_post_integrate = modify->n_post_integrate;
   int n_pre_exchange = modify->n_pre_exchange;
   int n_pre_neighbor = modify->n_pre_neighbor;

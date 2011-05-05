@@ -35,7 +35,7 @@ class Domain : protected Pointers {
                                          // 3 = shrink-wrap non-per w/ min
 
   int triclinic;		         // 0 = orthog box, 1 = triclinic
-  
+
                                          // orthogonal box
   double xprd,yprd,zprd;                 // global box dimensions
   double xprd_half,yprd_half,zprd_half;  // half dimensions

@@ -94,6 +94,12 @@ namespace MathExtra {
   inline double cbrta_halleyd(const double a, const double R);
   inline double halley_cbrt1d(double d);
 
+  inline int min(int a,int b);
+  inline int max(int a,int b);
+  inline int abs(int a);
+  inline double min(double a,double b);
+  inline double max(double a,double b);
+  inline double abs(double a);
 };
 
 /* ----------------------------------------------------------------------
@@ -626,5 +632,12 @@ void MathExtra::rotation_generator_z(const double m[3][3], double ans[3][3])
   ans[2][1]=m[2][0];
   ans[2][2]=0;
 }
+
+  int MathExtra::min(int a,int b) { if (a<b) return a; return b;}
+  int MathExtra::max(int a,int b) { if (a>b) return a; return b;}
+  int MathExtra::abs(int a) { if (a>0) return a; return -a;}
+  double MathExtra::min(double a,double b) { if (a<b) return a; return b;}
+  double MathExtra::max(double a,double b) { if (a>b) return a; return b;}
+  double MathExtra::abs(double a) { if (a>0.) return a; return -a;}
 
 #endif

@@ -63,11 +63,11 @@ using namespace LAMMPS_NS;
 void Input::stlfile(class FixMeshGran *mesh)
 {
   int n;
-  int *iTri=0,*nTriMax=0;
-  int iVertex=0;
-  bool insideSolidObject=false;
-  bool insideFacet=false;
-  bool insideOuterLoop=false;
+  int *iTri = 0, *nTriMax = 0;
+  int iVertex = 0;
+  bool insideSolidObject = false;
+  bool insideFacet = false;
+  bool insideOuterLoop = false;
 
   double xlo = lmp->domain->boxlo[0];
   double xhi = lmp->domain->boxhi[0];
@@ -76,16 +76,17 @@ void Input::stlfile(class FixMeshGran *mesh)
   double zlo = lmp->domain->boxlo[2];
   double zhi = lmp->domain->boxhi[2];
 
-  iTri=&(mesh->STLdata->nTri);
-  nTriMax=&(mesh->STLdata->nTriMax);
+  iTri = &(mesh->STLdata->nTri);
+  nTriMax = &(mesh->STLdata->nTriMax);
 
-  double phix=(mesh->rot_angle[0])*M_PI/180.;
-  double phiy=(mesh->rot_angle[1])*M_PI/180.;
-  double phiz=(mesh->rot_angle[2])*M_PI/180.;
-  double *vert_before_rot=new double[3];
-  double *vert_after_rot=new double[3];
+  double phix = (mesh->rot_angle[0])*M_PI/180.;
+  double phiy = (mesh->rot_angle[1])*M_PI/180.;
+  double phiz = (mesh->rot_angle[2])*M_PI/180.;
+  double *vert_before_rot = new double[3];
+  double *vert_after_rot = new double[3];
 
-  int flag_normalize=0;
+  int flag_normalize = 0;
+  int flag_outside = 0;
 
   while (1) {
     // read one line from input script
@@ -245,29 +246,18 @@ void Input::stlfile(class FixMeshGran *mesh)
       //store the vertex
       for (int j=0;j<3;j++) nd[(*iTri)-1][iVertex][j]=vert_after_rot[j];
 
-      //old version
-      //for (int j=0;j<3;j++)   nd[(*iTri)-1][iVertex][j]=(atof(arg[1+j])+(mesh->off_fact[j]))*(mesh->scale_fact);
-
-      //if a vertex is outside the simulation domain, generate an error
+      //if a vertex is outside the simulation domain, generate a warning
       if ((nd[(*iTri)-1][iVertex][0]<xlo) || (nd[(*iTri)-1][iVertex][1]<ylo) || (nd[(*iTri)-1][iVertex][2]<zlo))
       {
-          if(lmp->comm->me==0) fprintf(screen,"vertex #%d of triangle %d: %f|%f|%f\n",iVertex,(*iTri)-1,nd[(*iTri)-1][iVertex][0],nd[(*iTri)-1][iVertex][1],nd[(*iTri)-1][iVertex][2]);
-          error->warning("STL file may be incompatible: Vertex outside simulation box. You may want to enlarge the box or scale the STL geometry.");
+          flag_outside = 1;
+          
       }
       if ((nd[(*iTri)-1][iVertex][0]>xhi) || (nd[(*iTri)-1][iVertex][1]>yhi) || (nd[(*iTri)-1][iVertex][2]>zhi))
       {
-          if(lmp->comm->me==0) fprintf(screen,"vertex #%d of triangle %d: %f|%f|%f\n",iVertex,(*iTri)-1,nd[(*iTri)-1][iVertex][0],nd[(*iTri)-1][iVertex][1],nd[(*iTri)-1][iVertex][2]);
-          error->warning("STL file may be incompatible: Vertex outside simulation box. You may want to enlarge the box or scale the STL geometry.");
-      }
 
-      //if all vertices are read, calculate the mean value
-      /*if (iVertex==3) {
-        for (int j=0;j<3;j++)
-        {
-          mesh->facecenter[(*iTri)-1][j]=mesh->node0[(*iTri)-1][j]+mesh->node1[(*iTri)-1][j]+mesh->node2[(*iTri)-1][j];
-          mesh->facecenter[(*iTri)-1][j]=mesh->facecenter[(*iTri)-1][j]/3.;
-        }
-      }*/
+          flag_outside = 1;
+          
+      }
 
       iVertex++;
       if (iVertex>3) error->all("Corrupt or unknown STL file: Can not have more than 3 vertices in a facet (only triangular meshes supported).");
@@ -275,6 +265,7 @@ void Input::stlfile(class FixMeshGran *mesh)
   }
 
   if(flag_normalize && comm->me==0)error->warning("STL face normals were not normalized, normalizing");
+  if(flag_outside && comm->me==0)error->warning("STL file may be incompatible: One or more vertices outside simulation box");
 
   delete []vert_before_rot;
   delete []vert_after_rot;

@@ -18,7 +18,7 @@ the GNU General Public License.
 See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 /* NP ----------------------------------------------------------------------
-   The algorithms are partly based on the follwing papers:
+   The algorithms are partly based on the following papers:
    1: Int. J. Numer. Meth. Engng 2001, 51, 1407-1421
    2: Int. J. Numer. Meth. Engng 2001, 51, 1423-1436
    equation numbers refer to paper 1

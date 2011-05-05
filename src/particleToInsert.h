@@ -41,10 +41,11 @@ namespace LAMMPS_NS {
         double volume_ins;
         double mass_ins;
         double *radius_ins;
-        double r_bound;
         double **x_ins;
+        double r_bound;
+        double *x_bound;
+        double *xcm; 
 
-        double *xcm;
         double *inertia;
         double *ex_space,*ey_space,*ez_space;
         double **displace;

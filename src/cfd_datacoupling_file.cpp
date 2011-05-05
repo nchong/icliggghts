@@ -45,8 +45,6 @@ using namespace std;
 CfdDatacouplingFile::CfdDatacouplingFile(LAMMPS *lmp, int jarg,int narg, char **arg,FixCfdCoupling *fc)  :
   CfdDatacoupling(lmp, jarg, narg, arg,fc)
 {
-    if(comm->nprocs > 1)  error->all("Fix couple/cfd with file coupling is for serial computation only");
-
     iarg = jarg;
     int n_arg = narg - iarg;
     
@@ -56,14 +54,16 @@ CfdDatacouplingFile::CfdDatacouplingFile(LAMMPS *lmp, int jarg,int narg, char **
     firstexec = true;
 
     this->fc = fc;
+    is_parallel = false;
 
     filepath = new char[strlen(arg[iarg])+2];
     strcpy(filepath,arg[iarg]);
-    if(filepath[strlen(arg[iarg])]!='/') strcat(filepath,"/");
-
+    
     t0 = -1;
 
     iarg++;
+
+    append = 1;
 }
 
 CfdDatacouplingFile::~CfdDatacouplingFile()
@@ -108,6 +108,13 @@ void CfdDatacouplingFile::pull(char *name,char *type,void *&from)
 
 /* ---------------------------------------------------------------------- */
 
+void CfdDatacouplingFile::post_create()
+{
+    if(!is_parallel && comm->nprocs > 1)  error->all("Fix couple/cfd with file coupling is for serial computation only");
+}
+
+/* ---------------------------------------------------------------------- */
+
 void CfdDatacouplingFile::push(char *name,char *type,void *&to)
 {
     int len1 = -1, len2 = -1;
@@ -139,7 +146,7 @@ void CfdDatacouplingFile::push(char *name,char *type,void *&to)
 
     else
     {
-        if(screen) fprintf(screen,"LIGGGHTS could not find property %s requested by calling program.\n",name);
+        if(screen) fprintf(screen,"LIGGGHTS could not find property %s to write to calling program.\n",name);
         lmp->error->all("This error is fatal");
     }
 }
@@ -149,6 +156,9 @@ void CfdDatacouplingFile::push(char *name,char *type,void *&to)
 
 char * CfdDatacouplingFile::getFilePath(char *name,bool flag)
 {
+    
+    if(!append) return name;
+
     char *file = new char[strlen(filepath)+strlen(name)+3];
     strcpy(file,filepath);
     strcat(file,name);
@@ -162,6 +172,7 @@ char * CfdDatacouplingFile::getFilePath(char *name,bool flag)
 
 void CfdDatacouplingFile::op_complete(char *name)
 {
+    if(!append) return;
     char *oldfile = getFilePath(name,true);
     char *newfile = getFilePath(name,false);
     
@@ -183,6 +194,9 @@ void CfdDatacouplingFile::readVectorData(char *name, double ** field)
 
     // set file pointer
     ifstream inputPtr(file);
+
+    // skip lines starting with #
+    while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
 
     // write data to variable
     int numberOfParticles;
@@ -213,6 +227,9 @@ void CfdDatacouplingFile::readScalarData(char* name, double *field)
 
     // set file pointer
     ifstream inputPtr(file);
+
+    // skip lines starting with #
+    while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
 
     // write data to variable
     int numberOfParticles;
@@ -245,10 +262,14 @@ void CfdDatacouplingFile::readGlobalArrayData(char *name, double ** field, int &
     // set file pointerfrom
     ifstream inputPtr(file);
 
+    // skip lines starting with #
+    while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
+
     // write data to variable
     int l1,l2;
-    inputPtr >> len1;
-    inputPtr >> len2;
+    inputPtr >> l1;
+    inputPtr >> l2;
+
     if(l1 != len1 || l2 != len2) error->all("Global array received has different length than the corresponding global array in LIGGGHTS");
 
     for(int index = 0;index < len1; ++index)
@@ -275,6 +296,10 @@ void CfdDatacouplingFile::readGlobalVectorData(char* name, double *field, int &l
     // set file pointer
     int l1;
     ifstream inputPtr(file);
+
+    // skip lines starting with #
+    while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
+
     inputPtr >> l1;
 
     if(l1 != len) error->all("Global vector received has different length than the corresponding global array in LIGGGHTS");

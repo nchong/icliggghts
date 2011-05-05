@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -39,7 +39,7 @@ using namespace LAMMPS_NS;
 #define MYMAX(a,b) ((a) > (b) ? (a) : (b))
 
 /* ----------------------------------------------------------------------
-   initialize all output 
+   initialize all output
 ------------------------------------------------------------------------- */
 
 Output::Output(LAMMPS *lmp) : Pointers(lmp)
@@ -71,7 +71,7 @@ Output::Output(LAMMPS *lmp) : Pointers(lmp)
   newarg[0] = (char *) "one";
   thermo = new Thermo(lmp,1,newarg);
   delete [] newarg;
-    
+
   thermo_every = 0;
 
   ndump = 0;
@@ -88,7 +88,7 @@ Output::Output(LAMMPS *lmp) : Pointers(lmp)
 }
 
 /* ----------------------------------------------------------------------
-   free all memory 
+   free all memory
 ------------------------------------------------------------------------- */
 
 Output::~Output()
@@ -145,7 +145,7 @@ void Output::setup(int flag)
 	dump[idump]->write();
 	last_dump[idump] = ntimestep;
       }
-      next_dump[idump] = 
+      next_dump[idump] =
 	(ntimestep/dump_every[idump])*dump_every[idump] + dump_every[idump];
       if (dump[idump]->clearstep) modify->addstep_compute(next_dump[idump]);
       if (idump) next_dump_any = MYMIN(next_dump_any,next_dump[idump]);
@@ -294,7 +294,7 @@ void Output::write_restart(int ntimestep)
 }
 
 /* ----------------------------------------------------------------------
-   add a Dump to list of Dumps 
+   add a Dump to list of Dumps
 ------------------------------------------------------------------------- */
 
 void Output::add_dump(int narg, char **arg)
@@ -342,7 +342,7 @@ void Output::add_dump(int narg, char **arg)
 }
 
 /* ----------------------------------------------------------------------
-   modify parameters of a Dump 
+   modify parameters of a Dump
 ------------------------------------------------------------------------- */
 
 void Output::modify_dump(int narg, char **arg)
@@ -360,7 +360,7 @@ void Output::modify_dump(int narg, char **arg)
 }
 
 /* ----------------------------------------------------------------------
-   delete a Dump from list of Dumps 
+   delete a Dump from list of Dumps
 ------------------------------------------------------------------------- */
 
 void Output::delete_dump(char *id)
@@ -386,7 +386,7 @@ void Output::delete_dump(char *id)
 }
 
 /* ----------------------------------------------------------------------
-   new Thermo style 
+   new Thermo style
 ------------------------------------------------------------------------- */
 
 void Output::create_thermo(int narg, char **arg)
@@ -395,7 +395,7 @@ void Output::create_thermo(int narg, char **arg)
 
   // don't allow this so that dipole style can safely allocate inertia vector
 
-  if (domain->box_exist == 0) 
+  if (domain->box_exist == 0)
     error->all("Thermo_style command before simulation box is defined");
 
   // warn if previous thermo had been modified via thermo_modify command
@@ -448,6 +448,25 @@ void Output::create_restart(int narg, char **arg)
     n = strlen(arg[2]) + 1;
     restart2 = new char[n];
     strcpy(restart2,arg[2]);
+  } else if (narg == 4) {  
+    restart_toggle = 0;
+    restart2 = NULL;
+    if (strchr(restart1,'*') == NULL) strcat(restart1,".*");
+
+    if(strcmp(arg[2],"region")) error->all("Restart expects keyword 'region'");
+    int iregion = domain->find_region(arg[3]);
+    if (iregion == -1) error->all("Restart region ID does not exist");
+    else restart->region = domain->regions[iregion];
+  } else if (narg == 5) {  
+    restart_toggle = 1;
+    n = strlen(arg[2]) + 1;
+    restart2 = new char[n];
+    strcpy(restart2,arg[2]);
+
+    if(strcmp(arg[3],"region")) error->all("Restart expects keyword 'region'");
+    int iregion = domain->find_region(arg[4]);
+    if (iregion == -1) error->all("Restart region ID does not exist");
+    else restart->region = domain->regions[iregion];
   } else error->all("Illegal restart command");
 }
 
@@ -472,7 +491,7 @@ void Output::memory_usage()
   if (comm->me == 0) {
     if (screen)
       fprintf(screen,"Memory usage per processor = %g Mbytes\n",mbytes);
-    if (logfile) 
+    if (logfile)
       fprintf(logfile,"Memory usage per processor = %g Mbytes\n",mbytes);
   }
 }

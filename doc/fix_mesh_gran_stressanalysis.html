@@ -1,16 +1,18 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
 <HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Unix)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGED" CONTENT="20101108;14054700">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
+	<META NAME="CHANGED" CONTENT="20110331;15533700">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
 		H3.cjk { font-family: "HG Mincho Light J" }
 		H3.ctl { font-family: "Arial Unicode MS" }
+		PRE.cjk { font-family: "DejaVu Sans", monospace }
 	-->
 	</STYLE>
 </HEAD>
@@ -25,7 +27,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix ID group-ID mesh/gran filename walltype scalefactor xoff yoff zoff phix phiy phiz keyword values</PRE>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ID group-ID mesh/gran filename walltype scalefactor xoff yoff zoff phix phiy phiz keyword values</PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">ID, group-ID are documented in <A HREF="fix.html">fix</A>
 	command 
@@ -43,7 +45,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 	</P>
 	<LI><P>keyword = <I>finnie</I> 
 	</P>
-	<PRE STYLE="margin-bottom: 0.2in">  <I>finnie</I> value = <I>yes</I> or <I>no</I> </PRE>
+	<PRE CLASS="western" STYLE="margin-bottom: 0.2in">  <I>finnie</I> value = <I>yes</I> or <I>no</I> </PRE>
 </UL>
 <P><B>LIGGGHTS vs. LAMMPS Info: </B>
 </P>
@@ -53,17 +55,19 @@ not available in LAMMPS.</P>
 </P>
 <P>This fix is identical to <A HREF="fix_mesh_gran.html">fix
 mesh/gran</A> except for the fact that the pressure and shear force
-on each triangle of the mesh is evaluated (which may cost a little
-bit in performance). The forces can be dumped into VTK format using
-the following command:</P>
-<PRE STYLE="margin-bottom: 0.2in">dump id group mesh/gran/VTK N file stress</PRE><P>
+that the particles in the fix group exert on each triangle of the
+mesh is evaluated (which may cost a little bit in performance). 
+</P>
+<P>The forces can be dumped into VTK format using the following
+command:</P>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">dump id group mesh/gran/VTK N file stress</PRE><P>
 which is similar to the <A HREF="dump.html">dump stl</A> command
 except for the fact that a VTK file is written instead of an STL file
 which contains the STL data as well as pressure and shear stress. See
 <A HREF="dump.html">dump mesh/gran/VTK</A> for details.</P>
 <P>The optional finnie keyword activates a simple qualitative wear
 model - for details on the model, see the seperate
-/doc/finnie-wear.pdf.  The finnie constant k in 4.23 has to be
+/doc/finnie-wear.pdf. The finnie constant k in 4.23 has to be
 specified as follows: 
 </P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -82,22 +82,22 @@ void Neighbor::half_bin_no_newton(NeighList *list)
 
     for (k = 0; k < nstencil; k++) {
       for (j = binhead[ibin+stencil[k]]; j >= 0; j = bins[j]) {
-	if (j <= i) continue;
+        if (j <= i) continue;
 
-	jtype = type[j];
-	if (exclude && exclusion(i,j,itype,jtype,mask,molecule)) continue;
+        jtype = type[j];
+        if (exclude && exclusion(i,j,itype,jtype,mask,molecule)) continue;
 
-	delx = xtmp - x[j][0];
-	dely = ytmp - x[j][1];
-	delz = ztmp - x[j][2];
-	rsq = delx*delx + dely*dely + delz*delz;
+        delx = xtmp - x[j][0];
+        dely = ytmp - x[j][1];
+        delz = ztmp - x[j][2];
+        rsq = delx*delx + dely*dely + delz*delz;
 
-	if (rsq <= cutneighsq[itype][jtype]) {
-	  if (molecular) which = find_special(i,j);
-	  else which = 0;
-	  if (which == 0) neighptr[n++] = j;
-	  else if (which > 0) neighptr[n++] = which*nall + j;
-	}
+        if (rsq <= cutneighsq[itype][jtype]) {
+          if (molecular) which = find_special(i,j);
+          else which = 0;
+          if (which == 0) neighptr[n++] = j;
+          else if (which > 0) neighptr[n++] = which*nall + j;
+        }
       }
     }
 
@@ -145,7 +145,7 @@ void Neighbor::half_bin_newton(NeighList *list)
   int **pages = list->pages;
   int nstencil = list->nstencil;
   int *stencil = list->stencil;
-  
+
   int inum = 0;
   int npage = 0;
   int npnt = 0;

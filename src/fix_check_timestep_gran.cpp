@@ -31,11 +31,14 @@ See the README file in the top-level LAMMPS directory.
 #include "force.h"
 #include "comm.h"
 #include "modify.h"
-#include "fix_wall_gran_hooke_history.h"
+#include "fix_wall_gran.h"
 #include "fix_meshGran.h"
 #include "stl_tri.h"
+#include "neighbor.h"
 
 using namespace LAMMPS_NS;
+
+#define BIG 1000000.
 
 /* ---------------------------------------------------------------------- */
 
@@ -48,9 +51,9 @@ FixCheckTimestepGran::FixCheckTimestepGran(LAMMPS *lmp, int narg, char **arg) :
   fraction_rayleigh_lim=atof(arg[4]);
   fraction_hertz_lim=atof(arg[5]);
 
-  int iarg=6;
+  int iarg = 6;
 
-  warnflag=true;
+  warnflag = true;
   if(iarg<narg){
       if (narg < 8) error->all("Illegal fix check/timestep/gran command, not enough arguments");
       if(strcmp(arg[iarg++],"warn")!=0) error->all("Illegal fix check/timestep/gran command, use keyword 'warn'");
@@ -58,7 +61,7 @@ FixCheckTimestepGran::FixCheckTimestepGran(LAMMPS *lmp, int narg, char **arg) :
   }
 
   vector_flag = 1;
-  size_vector = 2;
+  size_vector = 3;
   global_freq = nevery;
   extvector = 1;
 }
@@ -77,17 +80,27 @@ int FixCheckTimestepGran::setmask()
 void FixCheckTimestepGran::init()
 {
   //some error checks
-  if(!atom->radius_flag||!atom->density_flag) error->all("Fix check/timestep/gran can only be used together with a granular atom style");
+  if(!atom->radius_flag || !atom->density_flag) error->all("Fix check/timestep/gran can only be used together with a granular atom style");
 
-  if (!(force->pair_match("gran",0))) error->all("Fix check/timestep/gran can only be used together with a granular pair style");
+  pg = (PairGranHookeHistory*)force->pair_match("gran/hooke/history",1);
+  if(!pg) pg = (PairGranHookeHistory*)force->pair_match("gran/hertz/history",1);
+  if(!pg) pg = (PairGranHookeHistory*)force->pair_match("gran/hooke",1);
 
-  mpg = static_cast<PairGranHookeHistory*>(force->pair)->getMatProp();
+  if (!pg) error->all("Fix check/timestep/gran can only be used together with: gran/hooke/history, gran/hooke, gran/hertz/history");
 
-  fwggh=NULL;
+  mpg = pg->mpg;
+  int max_type = mpg->max_type();
+
+  fwg = NULL;
   for(int ifix=0;ifix<modify->nfix;ifix++)
       if(strncmp(modify->fix[ifix]->style,"wall/gran",8)==0)
-          if(static_cast<FixWallGranHookeHistory*>(modify->fix[ifix])->wallstyle==MESHGRAN_FWGHH)
-              fwggh = static_cast<FixWallGranHookeHistory*>(modify->fix[ifix]);
+          if(static_cast<FixWallGran*>(modify->fix[ifix])->meshwall)
+              fwg = static_cast<FixWallGran*>(modify->fix[ifix]);
+
+  Y = static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("youngsModulus","property/global","peratomtype",max_type,0)]);
+  nu = static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("poissonsRatio","property/global","peratomtype",max_type,0)]);
+
+  if(!Y || !nu) error->all("Fix check/timestep/gran only works with a pair style that defines youngsModulus and poissonsRatio");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -96,17 +109,24 @@ void FixCheckTimestepGran::end_of_step()
 {
     calc_rayleigh_hertz_estims();
 
-    fraction_rayleigh=(update->dt)/rayleigh_time;
-    fraction_hertz=(update->dt)/hertz_time;
+    fraction_rayleigh = (update->dt)/rayleigh_time;
+    fraction_hertz = (update->dt)/hertz_time;
+    fraction_skin = (vmax * update->dt) / neighbor->skin;
 
     if(warnflag&&comm->me==0)
     {
-        if(fraction_rayleigh>fraction_rayleigh_lim)
+        if(vmax * update->dt > neighbor->skin)
+        {
+            if(screen)  fprintf(screen ,"WARNING: time step too long or skin too small - particles may travel a relative distance of %f per time-step, but skin is %f\n",vmax*update->dt,neighbor->skin);
+            if(logfile) fprintf(logfile,"WARNING: time step too long or skin too small - particles may travel a relative distance of %f per time-step, but skin is %f\n",vmax*update->dt,neighbor->skin);
+        }
+
+        if(fraction_rayleigh > fraction_rayleigh_lim)
         {
             if(screen) fprintf(screen,"WARNING: time-step is %f %% of rayleigh time\n",fraction_rayleigh*100.);
             if(logfile) fprintf(logfile,"WARNING: time-step is %f %% of rayleigh time\n",fraction_rayleigh*100.);
         }
-        if(fraction_hertz>fraction_hertz)
+        if(fraction_hertz > fraction_hertz)
         {
             if(screen) fprintf(screen,"WARNING: time-step is %f %% of hertz time\n",fraction_hertz*100.);
             if(logfile) fprintf(logfile,"WARNING: time-step is  %f %% of hertz time\n",fraction_hertz*100.);
@@ -124,26 +144,26 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
   int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  FixPropertyGlobal* Y = mpg->Y1;
-  FixPropertyGlobal* nu = mpg->v1;
-  int max_type = mpg->max_type;
-  int min_type = mpg->min_type;
+
+  int max_type = mpg->max_type();
+  int min_type = 1;
 
   //check rayleigh time and vmax of particles
-  double rayleigh_time_min_all,rayleigh_time_min=1000000.;
-  double vmag,vmax_all,vmax=0.;
+  double rayleigh_time_min_all,rayleigh_time_min = BIG;
+  double vmag,vmax_all;
+  vmax = 0;
   double rayleigh_time_i;
 
   for (int i = 0; i < nlocal; i++)
   {
     if (mask[i] & groupbit)
     {
-        double shear_mod=Y->compute_vector(type[i]-1)/(2.*(nu->compute_vector(type[i]-1)+1.));
-        rayleigh_time_i=M_PI*r[i]*sqrt(density[i]/shear_mod)/(0.1631*nu->compute_vector(type[i]-1)+0.8766);
-        if(rayleigh_time_i<rayleigh_time_min) rayleigh_time_min=rayleigh_time_i;
+        double shear_mod = Y->values[type[i]-1]/(2.*(nu->values[type[i]-1]+1.));
+        rayleigh_time_i = M_PI*r[i]*sqrt(density[i]/shear_mod)/(0.1631*nu->values[type[i]-1]+0.8766);
+        if(rayleigh_time_i < rayleigh_time_min) rayleigh_time_min = rayleigh_time_i;
 
-        vmag=sqrt(v[i][0]*v[i][0]+v[i][1]*v[i][1]+v[i][2]*v[i][2]);
-        if(vmag>vmax) vmax=vmag;
+        vmag = sqrt(v[i][0]*v[i][0]+v[i][1]*v[i][1]+v[i][2]*v[i][2]);
+        if(vmag > vmax) vmax=vmag;
     }
   }
 
@@ -157,11 +177,11 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
   FixMeshGran* mesh;
   double vmax_mesh_all,vmax_mesh=0.;
   double *vnode;
-  if(fwggh!=NULL)
+  if(fwg!=NULL)
   {
-      for(int imesh=0;imesh<fwggh->nFixMeshGran;imesh++)
+      for(int imesh=0;imesh<fwg->nFixMeshGran;imesh++)
       {
-          mesh=fwggh->FixMeshGranList[imesh];
+          mesh=fwg->FixMeshGranList[imesh];
           if(mesh->STLdata->movingMesh||mesh->STLdata->conveyor)
           {
               for(int itri=0;itri<mesh->nTri;itri++)
@@ -185,13 +205,14 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
   //loop over all material comibinations
   //  loop all particles
   //     test collision of particle with itself
-  double hertz_time_min_all,hertz_time_min=1000000.;
+  double hertz_time_min_all,hertz_time_min = 1000000.;
   double hertz_time_i,meff,reff,Eeff;
+
   for (int ti= 1 ; ti < max_type+1 ; ti++)
   {
       for (int tj=  ti ; tj < max_type+1 ; tj++)
       {
-          Eeff=mpg->Yeff[ti][tj];
+          Eeff=pg->Yeff[ti][tj];
 
           for (int i = 0; i < nlocal; i++)
           {
@@ -217,6 +238,7 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
 
 double FixCheckTimestepGran::compute_vector(int n)
 {
-  if(n==0) return fraction_rayleigh;
-  else return fraction_hertz;
+  if(n == 0)      return fraction_rayleigh;
+  else if(n == 1) return fraction_hertz;
+  else if(n == 2) return fraction_skin;
 }

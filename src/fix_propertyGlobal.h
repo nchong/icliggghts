@@ -48,6 +48,7 @@ class FixPropertyGlobal : public Fix {
   FixPropertyGlobal(class LAMMPS *, int, char **);
   ~FixPropertyGlobal();
   int setmask();
+  void init();
 
   double memory_usage();
   double compute_scalar();

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -105,7 +105,6 @@ NeighList::~NeighList()
 void NeighList::grow(int nmax)
 {
   // skip if grow not needed
-
   if (nmax <= maxlocal) return;
   maxlocal = nmax;
 
@@ -119,7 +118,7 @@ void NeighList::grow(int nmax)
   firstneigh = (int **)
     memory->smalloc(maxlocal*sizeof(int *),"neighlist:firstneigh");
 
-  if (dnum) 
+  if (dnum)
     firstdouble = (double **)
       memory->smalloc(maxlocal*sizeof(double *),"neighlist:firstdouble");
 }
@@ -175,14 +174,14 @@ int **NeighList::add_pages()
   int npage = maxpage;
   maxpage += PGDELTA;
 
-  pages = (int **) 
+  pages = (int **)
     memory->srealloc(pages,maxpage*sizeof(int *),"neighlist:pages");
   for (int i = npage; i < maxpage; i++)
     pages[i] = (int *) memory->smalloc(pgsize*sizeof(int),
 				       "neighlist:pages[i]");
 
   if (dnum) {
-    dpages = (double **) 
+    dpages = (double **)
       memory->srealloc(dpages,maxpage*sizeof(double *),"neighlist:dpages");
     for (int i = npage; i < maxpage; i++)
       dpages[i] = (double *) memory->smalloc(dnum*pgsize*sizeof(double),

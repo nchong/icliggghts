@@ -39,7 +39,7 @@ class PairGranHooke : public PairGranHookeHistory {
  public:
   friend class FixWallGranHooke;
   PairGranHooke(class LAMMPS *);
-  void compute(int, int);
+  void compute(int, int, int);
 };
 
 }

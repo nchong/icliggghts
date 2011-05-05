@@ -76,6 +76,10 @@ class Fix : protected Pointers {
   double virial[6];              // accumlated virial
   double **vatom;                // accumulated per-atom virial
 
+  int recent_restart;           
+
+  int lastexec;                 
+
   int INITIAL_INTEGRATE,POST_INTEGRATE;    // mask settings
   int PRE_EXCHANGE,PRE_NEIGHBOR;
   int PRE_FORCE,POST_FORCE,FINAL_INTEGRATE,END_OF_STEP,THERMO_ENERGY;
@@ -89,9 +93,13 @@ class Fix : protected Pointers {
 
   virtual int setmask() = 0;
 
+  virtual void post_create() {} 
+  virtual void pre_delete() {} 
   virtual void init() {}
   virtual void init_list(int, class NeighList *) {}
   virtual void setup(int) {}
+  virtual void setup_pre_exchange() {}
+  virtual void setup_pre_force(int) {}
   virtual void min_setup(int) {}
   virtual void initial_integrate(int) {}
   virtual void post_integrate() {}
