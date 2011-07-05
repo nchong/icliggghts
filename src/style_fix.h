@@ -19,6 +19,7 @@
 #include "fix_drag.h"
 #include "fix_dt_reset.h"
 #include "fix_efield.h"
+#include "fix_emit_step.h"
 #include "fix_enforce2d.h"
 #include "fix_evaporate.h"
 #include "fix_freeze.h"

@@ -39,6 +39,7 @@ class PairGranHookeHistory : public PairGran {
 
  friend class FixWallGranHookeHistory;
  friend class FixCheckTimestepGran;
+ friend class FixEmitStep;
 
  public:
 

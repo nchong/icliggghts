@@ -107,6 +107,7 @@ variable        k equal  "c_1"  # translational kinetic energy
 variable        m equal  "c_2"  # rotational kinetic energy
 
 # fix             extra all print 1000 "$k   $m" file energies.txt  # also comment out if not necessary
+fix             emit  all emit_step 1000
 
 #insert particles
 run		4999
