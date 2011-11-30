@@ -29,13 +29,14 @@ namespace LAMMPS_NS {
 class MechParamGran: protected Pointers
 {
  public:
+  friend class FixEmitStep;
 
   MechParamGran(LAMMPS *lmp);
   ~MechParamGran();
 
   int max_type();
 
- private:
+ protected:
   int mintype,maxtype;
 }; //end class
 

@@ -11,7 +11,10 @@
 #include "pair.h"
 #include "pair_gran_hertz_history.h"
 
+#include <fstream>
+
 using namespace LAMMPS_NS;
+using namespace std;
 
 FixEmitStep::FixEmitStep(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg) {
   if (!(force->pair_match("gran/hertz/history",0))) {
@@ -58,70 +61,76 @@ void FixEmitStep::emit(const char *fname, bool is_pre_force=true) {
   int inum = list->inum;
   int nall = atom->nlocal + atom->nghost;
 
-  FILE *ofile = is_pre_force ? fopen(fname, "w") : fopen(fname, "a");
+  ofstream ofile;
+  ofile.open(fname, 
+      ofstream::binary | (is_pre_force ? ofstream::out : ofstream::app));
 
   if (is_pre_force) {
+    //MAGIC VALUE
+    unsigned int MAGIC = 0xDEADBEEF;
+    ofile.write(reinterpret_cast<char *>(&MAGIC), sizeof(MAGIC));
+
     //CONSTANTS
-    fprintf(ofile, "%.16f\n", pair->dt);
-    fprintf(ofile, "%.16f\n", force->nktv2p);
+    ofile.write(reinterpret_cast<char *>(&(pair->dt)), sizeof(pair->dt));
+    ofile.write(reinterpret_cast<char *>(&(force->nktv2p)), sizeof(force->nktv2p));
     int ntype = pair->mpg->max_type() + 1;
-    fprintf(ofile, "%d\n", ntype);
+    ofile.write(reinterpret_cast<char *>(&(ntype)), sizeof(ntype));
     for (int p=0; p<ntype; p++) {
       for (int q=0; q<ntype; q++) {
-        fprintf(ofile, "%.16f\n", pair->Yeff[p][q]);
+        ofile.write(reinterpret_cast<char *>(&(pair->Yeff[p][q])), sizeof(pair->Yeff[p][q]));
       }
     }
     for (int p=0; p<ntype; p++) {
       for (int q=0; q<ntype; q++) {
-        fprintf(ofile, "%.16f\n", pair->Geff[p][q]);
+        ofile.write(reinterpret_cast<char *>(&(pair->Geff[p][q])), sizeof(pair->Geff[p][q]));
       }
     }
     for (int p=0; p<ntype; p++) {
       for (int q=0; q<ntype; q++) {
-        fprintf(ofile, "%.16f\n", pair->betaeff[p][q]);
+        ofile.write(reinterpret_cast<char *>(&(pair->betaeff[p][q])), sizeof(pair->betaeff[p][q]));
       }
     }
     for (int p=0; p<ntype; p++) {
       for (int q=0; q<ntype; q++) {
-        fprintf(ofile, "%.16f\n", pair->coeffFrict[p][q]);
+        ofile.write(reinterpret_cast<char *>(&(pair->coeffFrict[p][q])), sizeof(pair->coeffFrict[p][q]));
       }
     }
         
     //NODES
-    fprintf(ofile, "%d\n", nall);
+    ofile.write(reinterpret_cast<char *>(&(nall)), sizeof(nall));
     for (int i=0; i<nall; i++) {
       for (int j=0; j<3; j++) {
-        fprintf(ofile, "%.16f\n", atom->x[i][j]);
+        ofile.write(reinterpret_cast<char *>(&(atom->x[i][j])), sizeof(atom->x[i][j]));
       }
     }
     for (int i=0; i<nall; i++) {
       for (int j=0; j<3; j++) {
-        fprintf(ofile, "%.16f\n", atom->v[i][j]);
+        ofile.write(reinterpret_cast<char *>(&(atom->v[i][j])), sizeof(atom->v[i][j]));
       }
     }
     for (int i=0; i<nall; i++) {
       for (int j=0; j<3; j++) {
-        fprintf(ofile, "%.16f\n", atom->omega[i][j]);
+        ofile.write(reinterpret_cast<char *>(&(atom->omega[i][j])), sizeof(atom->omega[i][j]));
       }
     }
     for (int i=0; i<nall; i++) {
-      fprintf(ofile, "%.16f\n", atom->radius[i]);
+      ofile.write(reinterpret_cast<char *>(&(atom->radius[i])), sizeof(atom->radius[i]));
     }
     for (int i=0; i<nall; i++) {
-      fprintf(ofile, "%.16f\n", atom->rmass[i]);
+      ofile.write(reinterpret_cast<char *>(&(atom->rmass[i])), sizeof(atom->rmass[i]));
     }
     for (int i=0; i<nall; i++) {
-      fprintf(ofile, "%d\n", atom->type[i]);
+      ofile.write(reinterpret_cast<char *>(&(atom->type[i])), sizeof(atom->type[i]));
     }
   }
   for (int i=0; i<nall; i++) {
     for (int j=0; j<3; j++) {
-      fprintf(ofile, "%.16f\n", atom->f[i][j]);
+      ofile.write(reinterpret_cast<char *>(&(atom->f[i][j])), sizeof(atom->f[i][j]));
     }
   }
   for (int i=0; i<nall; i++) {
     for (int j=0; j<3; j++) {
-      fprintf(ofile, "%.16f\n", atom->torque[i][j]);
+      ofile.write(reinterpret_cast<char *>(&(atom->torque[i][j])), sizeof(atom->torque[i][j]));
     }
   }
 
@@ -133,7 +142,7 @@ void FixEmitStep::emit(const char *fname, bool is_pre_force=true) {
       int jnum = list->numneigh[i];
       nedge += jnum;
     }
-    fprintf(ofile, "%d\n", nedge);
+    ofile.write(reinterpret_cast<char *>(&(nedge)), sizeof(nedge));
 
     for (int ii=0; ii<inum; ii++) {
       int i = list->ilist[ii];
@@ -141,8 +150,8 @@ void FixEmitStep::emit(const char *fname, bool is_pre_force=true) {
 
       for (int jj = 0; jj<jnum; jj++) {
         int j = list->firstneigh[i][jj];
-        fprintf(ofile, "%d\n", i);
-        fprintf(ofile, "%d\n", j);
+        ofile.write(reinterpret_cast<char *>(&(i)), sizeof(i));
+        ofile.write(reinterpret_cast<char *>(&(j)), sizeof(j));
       }
     }
   }
@@ -154,10 +163,9 @@ void FixEmitStep::emit(const char *fname, bool is_pre_force=true) {
     for (int jj = 0; jj<jnum; jj++) {
       double *shear = &(listgranhistory->firstdouble[i][3*jj]);
       for (int k=0; k<3; k++) {
-        fprintf(ofile, "%.16f\n", shear[k]);
+        ofile.write(reinterpret_cast<char *>(&(shear[k])), sizeof(shear[k]));
       }
     }
   }
-  fflush(ofile);
-  fclose(ofile);
+  ofile.close();
 }
