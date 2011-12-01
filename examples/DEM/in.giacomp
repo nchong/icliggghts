@@ -63,6 +63,9 @@ pair_coeff	* *
 
 timestep	${tstep}
 
+# Emit pair information to file (must be before other post_force fixes)
+fix             emit  all emit_step 1000
+
 fix		gravi all gravity 9.81 vector 0.0 0.0 -1.0 # 9.81 vertically downwards
 
 fix		zwalls all wall/gran/hertz/history 1 0 zplane 0.0 NULL 1 # fix name is zwalls, all grains can touch it, of type ..., damping and cohesion flags
@@ -107,7 +110,6 @@ variable        k equal  "c_1"  # translational kinetic energy
 variable        m equal  "c_2"  # rotational kinetic energy
 
 # fix             extra all print 1000 "$k   $m" file energies.txt  # also comment out if not necessary
-fix             emit  all emit_step 1000
 
 #insert particles
 run		4999
