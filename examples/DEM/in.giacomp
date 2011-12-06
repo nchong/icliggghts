@@ -17,6 +17,7 @@
 variable        Natoms equal 5700*1^3  # multiply by 2^3, 3^3, 4^3 etc
 variable        minDiameter  equal 0.002/1.0 # and divide minDiameter by 2.0 or 3.0 or 4.0 
 variable        energylimit equal 5.7e-8*1.0^3 # and multiply energylimit by 2.0^3 or 3.0^3 or 4.0^3..
+variable        skin equal 0.002/1.0 #and divide by 2.0, 3.0, 4.0 etc
 
 
 
@@ -43,7 +44,7 @@ region		reg block -0.005 0.065 -0.005 0.065 -0.05 0.15 units box  # defines a ge
 
 create_box	1 reg  # use region reg as the simulation domain in space
 
-neighbor	0.002 bin #sets the distance which triggers the creation of new neighbour pairs 
+neighbor	${skin} bin #sets the distance which triggers the creation of new neighbour pairs 
 neigh_modify	delay 0
 
 # Specify now Material properties (LIGGGHTS pair styles)
